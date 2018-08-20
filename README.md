@@ -3,7 +3,7 @@
 This project is intended to perform video analysis on pre-recorded footage of the game Super Smash Bros Melee. Once the project has progressed enough, I plan to integrate it with the [SmashVods](http://smashvods.com/) video database.
 
 ## TODO List
-If you are interested in helping out, join this repo's [Slack](https://smashscan.slack.com/) and send a message.
+If you are interested in helping out, join this repo's [Slack](https://join.slack.com/t/smashscan/shared_invite/enQtNDE5MjA5OTI0NDgwLTYwNGNkOWFmZjRjYjkwNDRkNzMzZGJjZjQwZTY5Y2YwZDhmNDJiYzEyZjk1OWJmMmU2YzYzNjRjMTIzYmM2YTI) and send a message.
 + Create a final bounding box output, that averages the boxes to create an output box and removes outliers
   + Using this bounding box, output the times that each stage is present within a video. Try to ignore highlight clips.
 + Research ways to detect stock icons (Either template matching, feature matching, or neural networks)
