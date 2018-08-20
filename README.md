@@ -2,6 +2,13 @@
 
 This project is intended to perform video analysis on pre-recorded footage of the game Super Smash Bros Melee. Once the project has progressed enough, I plan to integrate it with the [SmashVods](http://smashvods.com/) video database.
 
+## TODO List
++ Create a final bounding box output, that averages the boxes to create an output box and removes outliers
+  + Using this bounding box, output the times that each stage is present within a video. Try to ignore highlight clips.
++ Research ways to detect stock icons (Either template matching, feature matching, or neural networks)
++ Research ways to detect the timer (Either template matching, feature matching, or neural networks)
++ Research ways to detect the percent counter (Either template matching, feature matching, or neural networks)
++ Add additional game capabilities (SSB64, SSB4, PM, Rivals)
 
 ## Training Guide
 
