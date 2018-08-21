@@ -17,7 +17,7 @@ If you are interested in helping out, join this repository's [Slack](https://joi
 ## Instalation Guide
 1. Install TensorFlow-GPU. I followed [Mark Jay's tutorial](https://www.youtube.com/watch?v=vxjbL5iN1XY) for Ubuntu 18.04. For reference my NVIDIA driver is 390.77, my CUDA version is 9.0.176, CUDANN version is 7.0.5, and tensorflow-gpu version is 1.5. I had the most trouble installing this and getting test tensorflow-gpu examples to work. Make sure to install these in the correct order, and I'd avoid installing the newest versions of these drivers/packages. I tried and couldn't get the test examples to work.
 2. Install the [DarkFlow](https://github.com/thtrieu/darkflow) repository globally. I followed [Mark Jay's tutorials](https://www.youtube.com/watch?v=PyjBd7IDYZs&list=PLX-LrBk6h3wSGvuTnxB2Kj358XfctL4BM) to understand the basics of the DarkFlow. 
-3. Create an `annotations`, `output`, and `videos` folder. The `.gitignore` doesn't like committing "empty" folders.
+3. Clone this repo and create an `annotations`, `output`, and `videos` folder inside. The `.gitignore` doesn't like committing "empty" folders.
 
 ## Testing Guide
 
