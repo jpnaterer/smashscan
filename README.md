@@ -31,10 +31,10 @@ python download.py dQw4w9WgXcQ example-video-name.mp4
 Use `test.py` to draw bounding boxes on the video. This uses the pre-trained weights in the `cfg` folder.
 
 ``` bash
-python test.py -v example-video-name.mp4
+python test.py example-video-name.mp4
 
 # To output example frames (.png's), add the save flag.
-python test.py -v example-video-name.mp4 -save
+python test.py example-video-name.mp4 -save
 
 # If you have imagemagick installed, create a .gif with the following command.
 cd output
