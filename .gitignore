@@ -3,6 +3,7 @@
 *.png
 *.mp4
 *.gif
+hidden/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

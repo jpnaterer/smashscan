@@ -1,17 +1,10 @@
-
+import numpy as np
 
 # A custom filter that works on an int array that represents the timeline of 
 # labels (stages) found by tfnet. (-1) represents that no stage was found. The 
 # goal of this filter is to fill in small time segment holes, while also 
 # filtering out small time segments. 
-def get_clean_hist(dirty_hist_in, step_size):
-    # The time required for a time segment to be considered gameplay. Assumes
-    # the game is captured as 30fps, and the minimum match length is 30s.
-    state_length_thresh = int(30 * (30 / step_size))
-
-    # Tunable parameter
-    differ_thresh = 5
-    
+def hist_fill_filter(dirty_hist_in, differ_thresh=4):
     # Add some no-stage found states at the end of dirty_hist to allow the
     # filter defined below work at the end of the list. This fix is necessary
     # when the match ends too close (with differ_thresh) to the end of the 
@@ -53,11 +46,12 @@ def get_clean_hist(dirty_hist_in, step_size):
                 differ_state = dirty_hist[i]
 
             if differ_const_count == differ_thresh:
+                differ_count = 0
                 differ_const_count = 0
                 current_state = differ_state
                 clean_hist[i-(differ_thresh-1):i] = \
                     [current_state] * (differ_thresh-1)
-            elif differ_count == differ_thresh:
+            elif differ_count == differ_thresh and current_state != -1:
                 differ_count = 0
                 current_state = -1
                 clean_hist[i-(differ_thresh-1):i] = \
@@ -72,20 +66,38 @@ def get_clean_hist(dirty_hist_in, step_size):
     dirty_hist = dirty_hist[:-differ_thresh]
     clean_hist = clean_hist[:-differ_thresh]
 
-    # print (dirty_hist)
-    # print (clean_hist)
-    # print (get_match_ranges(clean_hist))
     return clean_hist
 
 
 # TODO write comment
-def get_match_ranges(clean_hist):
+def hist_size_filter(dirty_hist, step_size):
+    # The time required for a time segment to be considered gameplay. Assumes
+    # the game is captured as 30fps, and the minimum match length is 30s.
+    state_length_thresh = int(30 * (30 / step_size))
+
+    # Assume that the history timeline has no stages present (-1).
+    clean_hist = [-1] * len(dirty_hist)
+
+    match_ranges = get_match_ranges(dirty_hist)
+    
+    match_ranges = list(filter( 
+        lambda b: b[1] - b[0] > state_length_thresh, match_ranges))
+
+    for match_range in match_ranges:
+        clean_hist[match_range[0]:match_range[1]] = \
+            [dirty_hist[match_range[0]]] * (match_range[1] - match_range[0])
+
+    return clean_hist
+
+
+# TODO write comment
+def get_match_ranges(any_hist):
     current_state = -1
     start_timestep = 0
     match_range_list = list()
 
     # End fix
-    used_hist = clean_hist + [-1]
+    used_hist = any_hist + [-1]
 
     for i in range(0, len(used_hist)):
         if used_hist[i] != -1 and current_state == -1:
@@ -96,3 +108,21 @@ def get_match_ranges(clean_hist):
             match_range_list.append((start_timestep, i - 1))
 
     return match_range_list
+
+
+# TODO write comment
+def get_avg_bboxes(any_hist, bbox_hist):
+    match_ranges = get_match_ranges(any_hist)
+    match_bboxes = list()
+
+    for match_range in match_ranges:
+        match_size = match_range[1] - match_range[0] + 1
+        tl_sum, br_sum = (0, 0), (0, 0)
+        for i in range(match_range[0], match_range[1]):
+            tl_sum = np.add(tl_sum, bbox_hist[i][0])
+            br_sum = np.add(tl_sum, bbox_hist[i][1])
+        tl = tl_sum/match_size
+        br = br_sum/match_size
+        match_bboxes.append((tl.tolist(), br.tolist()))
+
+    return match_bboxes

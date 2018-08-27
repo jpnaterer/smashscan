@@ -33,6 +33,9 @@ def show_tfnet_results(video_name, step_size,
     # stores the labels as integers, while no result found is (-1).
     dirty_hist = list()
 
+    # A list that stores the corresponding bounding boxes of the timeline.
+    bbox_hist = list()
+
     # Display a cv2 window if the hide flag is disabled.
     if show_flag:
         cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
@@ -74,14 +77,15 @@ def show_tfnet_results(video_name, step_size,
             # Add text with label and confidence to the displayed frame.
             text = '{}: {:.0f}%'.format(label, confidence * 100)
             frame = cv2.putText(frame, text, text_tl, 
-                                cv2.FONT_HERSHEY_DUPLEX, 
-                                0.8, (0, 0, 0), 2)
+                cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 0), 2)
 
         # Store label if result found, or (-1) if no result was found.
         if max_confidence != 0:
             dirty_hist.append(labels_list.index(result['label']))
+            bbox_hist.append((tl, br))
         else:
             dirty_hist.append(-1)
+            bbox_hist.append(-1)
 
         # Display the frame if show_flag is enabled. Close if 'q' pressed.
         if show_flag:
@@ -93,27 +97,31 @@ def show_tfnet_results(video_name, step_size,
         if save_flag:
             cv2.imwrite('output/frame%07d.png' % current_frame, frame)
 
+    # End the TfNet session and display time taken to complete.
     tfnet.sess.close()
     finish_time = (datetime.now() - start_time).total_seconds()
     print("Successfully collected tfnet results in %.2fs" % finish_time)
     print("\tAverage FPS: %.2f" % (len(dirty_hist) / finish_time))
 
-    # Apply the cleaning algorithm and display a history plot.
-    clean_hist = preprocess.get_clean_hist(dirty_hist, step_size)
+    # Fill holes in the history timeline list, and filter out timeline 
+    # sections that are smaller than a particular size.
+    clean_hist = preprocess.hist_fill_filter(dirty_hist)
+    clean_hist = preprocess.hist_size_filter(clean_hist, step_size)
     show_hist_plots(dirty_hist, clean_hist, labels_list)
+    print(preprocess.get_avg_bboxes(clean_hist, bbox_hist))
+
+    # Show the beginning and end of each match according to the filters.
     match_ranges = preprocess.get_match_ranges(clean_hist)
+    for match_range in match_ranges:
+        capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[0]*step_size)
+        _, frame = capture.read()
+        cv2.imshow('frame', frame)
+        cv2.waitKey(0)
 
-    if show_flag:
-        for match_range in match_ranges:
-            capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[0]*step_size)
-            _, frame = capture.read()
-            cv2.imshow('frame', frame)
-            cv2.waitKey(0)
-
-            capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[1]*step_size)
-            _, frame = capture.read()
-            cv2.imshow('frame', frame)
-            cv2.waitKey(0)
+        capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[1]*step_size)
+        _, frame = capture.read()
+        cv2.imshow('frame', frame)
+        cv2.waitKey(0)
 
     capture.release()
     cv2.destroyAllWindows()
