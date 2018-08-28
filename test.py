@@ -60,12 +60,14 @@ def show_tfnet_results(video_name, step_size,
                 max_confidence = result_iter["confidence"]
 
         # Extract information from results (list of dicts).
-        if max_confidence != 0 and show_flag:
+        if max_confidence != 0:
             tl = (result['topleft']['x'], result['topleft']['y'])
             br = (result['bottomright']['x'], result['bottomright']['y'])
             label = result['label']
             confidence = result['confidence']
 
+        # Display bounding box, label, and confidence.
+        if max_confidence != 0 and show_flag:
             # Draw bounding box around frame's result.
             frame = cv2.rectangle(frame, tl, br, [0, 0, 255], 6)
 
@@ -108,18 +110,24 @@ def show_tfnet_results(video_name, step_size,
     clean_hist = preprocess.hist_fill_filter(dirty_hist)
     clean_hist = preprocess.hist_size_filter(clean_hist, step_size)
     show_hist_plots(dirty_hist, clean_hist, labels_list)
-    print(preprocess.get_avg_bboxes(clean_hist, bbox_hist))
+
+    # Get a list of the matches and avg bboxes according to clean_hist.
+    match_ranges = preprocess.get_match_ranges(clean_hist)
+    match_bboxes = preprocess.get_match_bboxes(match_ranges, bbox_hist)
 
     # Show the beginning and end of each match according to the filters.
-    match_ranges = preprocess.get_match_ranges(clean_hist)
-    for match_range in match_ranges:
+    for i, match_range in enumerate(match_ranges):
         capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[0]*step_size)
         _, frame = capture.read()
+        frame = cv2.rectangle(frame, match_bboxes[i][0], 
+            match_bboxes[i][1], [0, 0, 255], 6)
         cv2.imshow('frame', frame)
         cv2.waitKey(0)
 
         capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[1]*step_size)
         _, frame = capture.read()
+        frame = cv2.rectangle(frame, match_bboxes[i][0], 
+            match_bboxes[i][1], [0, 0, 255], 6)
         cv2.imshow('frame', frame)
         cv2.waitKey(0)
 

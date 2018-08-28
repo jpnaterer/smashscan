@@ -69,20 +69,23 @@ def hist_fill_filter(dirty_hist_in, differ_thresh=4):
     return clean_hist
 
 
-# TODO write comment
+# A custom filter that works on an int array that represents the timeline of 
+# labels found by tfnet. (-1) represents that no stage was found. The goal of
+# this filter is to remove all time segments shorter than match_length_thresh.
 def hist_size_filter(dirty_hist, step_size):
     # The time required for a time segment to be considered gameplay. Assumes
     # the game is captured as 30fps, and the minimum match length is 30s.
-    state_length_thresh = int(30 * (30 / step_size))
+    match_length_thresh = int(30 * (30 / step_size))
 
     # Assume that the history timeline has no stages present (-1).
     clean_hist = [-1] * len(dirty_hist)
 
+    # Filter out matches that are less than match_length_thresh.
     match_ranges = get_match_ranges(dirty_hist)
-    
     match_ranges = list(filter( 
-        lambda b: b[1] - b[0] > state_length_thresh, match_ranges))
+        lambda b: b[1] - b[0] > match_length_thresh, match_ranges))
 
+    # Update the original clean_hist timeline by removing short matches.
     for match_range in match_ranges:
         clean_hist[match_range[0]:match_range[1]] = \
             [dirty_hist[match_range[0]]] * (match_range[1] - match_range[0])
@@ -90,39 +93,58 @@ def hist_size_filter(dirty_hist, step_size):
     return clean_hist
 
 
-# TODO write comment
+# Given a label timeline, return a list of pairs corresponding to 
+# the ranges (starting and ending frames) a match (!= -1) is present.
 def get_match_ranges(any_hist):
-    current_state = -1
-    start_timestep = 0
-    match_range_list = list()
+    match_ranges = list()
 
-    # End fix
+    # Indicates the current stage while iterating through the timeline.
+    current_state = -1
+
+    # Indicates the timestep the current stage was first detected.
+    start_timestep = 0
+
+    # The algorithm requires a stage transition at the end of the timeline.
     used_hist = any_hist + [-1]
 
+    # Iterate through the timeline. A match start is indicated by a change
+    # from a (-1) to non-(-1) state, while a match end is indicated by a
+    # change from a non-(-1) to (-1) state.
     for i in range(0, len(used_hist)):
         if used_hist[i] != -1 and current_state == -1:
             current_state = used_hist[i]
             start_timestep = i
         elif used_hist[i] != current_state and current_state != -1:
             current_state = -1
-            match_range_list.append((start_timestep, i - 1))
+            match_ranges.append((start_timestep, i - 1))
 
-    return match_range_list
+    return match_ranges
 
 
-# TODO write comment
-def get_avg_bboxes(any_hist, bbox_hist):
-    match_ranges = get_match_ranges(any_hist)
+# Given the match ranges and bounding box history, return a list of the average
+# bounding box (top left and bottom right coordinate pair) of each match.
+def get_match_bboxes(match_ranges, bbox_hist):
     match_bboxes = list()
 
+    # Iterate through match ranges and initialize match_size to be the counter
+    # for the number of elements summed, and tl_sum/br_sum as the actual sums.
     for match_range in match_ranges:
-        match_size = match_range[1] - match_range[0] + 1
+        match_size = 0
         tl_sum, br_sum = (0, 0), (0, 0)
+
+        # Use the match_range to iterate through the bbox_hist to sum the 
+        # (tl, br) pair. Numpy is used to easily sum the tuples.
         for i in range(match_range[0], match_range[1]):
-            tl_sum = np.add(tl_sum, bbox_hist[i][0])
-            br_sum = np.add(tl_sum, bbox_hist[i][1])
-        tl = tl_sum/match_size
-        br = br_sum/match_size
-        match_bboxes.append((tl.tolist(), br.tolist()))
+            if bbox_hist[i] != -1:
+                match_size += 1
+                tl_sum = np.add(tl_sum, bbox_hist[i][0])
+                br_sum = np.add(br_sum, bbox_hist[i][1])
+
+        # Round the (tl, br) avg to the nearest int and append to the list.
+        tl = (int(round(tl_sum[0]/match_size)), 
+            int(round(tl_sum[1]/match_size)))
+        br = (int(round(br_sum[0]/match_size)), 
+            int(round(br_sum[1]/match_size)))
+        match_bboxes.append((tl, br))
 
     return match_bboxes
