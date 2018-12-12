@@ -4,8 +4,7 @@ This project is intended to perform video analysis on pre-recorded footage of th
 
 ## TODO List
 If you are interested in helping out, join this repository's [Slack](https://join.slack.com/t/smashscan/shared_invite/enQtNDE5MjA5OTI0NDgwLTYwNGNkOWFmZjRjYjkwNDRkNzMzZGJjZjQwZTY5Y2YwZDhmNDJiYzEyZjk1OWJmMmU2YzYzNjRjMTIzYmM2YTI) and send a message.
-+ Create a final bounding box output, that averages the boxes to create an output box and removes outliers
-  + Using this bounding box, output the times that each stage is present within a video. Try to ignore highlight clips.
++ Create a framework that allows the testing of multiple object detection APIs, to perform accuracy and speed comparisons
 + Research ways to detect stock icons (Either template matching, feature matching, or neural networks)
 + Research ways to detect the timer (Either template matching, feature matching, or neural networks)
 + Research ways to detect the percent counter (Either template matching, feature matching, or neural networks)
@@ -13,6 +12,7 @@ If you are interested in helping out, join this repository's [Slack](https://joi
 
 ### Milestones
 1. [Train a neural network (DarkNet) to search for the six legal SSBM stages, regardless of a stream overlay.](https://medium.com/@seft/smashscan-using-neural-networks-to-analyze-super-smash-bros-melee-a7d0ab5c0755)
+2. [Improve video download speed and create a stage-timeline object to represent SSBM matches.](https://medium.com/@seft/smashscan-using-neural-networks-to-analyze-super-smash-bros-melee-part-2-b13ecfbf4e0d)
 
 ## Instalation Guide
 1. Install the following python packages via pip. The version numbers are not necessarily required, I just provided them as a reference for when I wrote this guide: numpy (1.11.0), matplotlib (1.5.1), cython (0.28.5), opencv-python (3.4.2.17), youtube-dl (2018.8.22 - 2018 version much faster than 2015-2017).
