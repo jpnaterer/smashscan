@@ -15,8 +15,11 @@ If you are interested in helping out, join this repository's [Slack](https://joi
 2. [Improve video download speed and create a stage-timeline object to represent SSBM matches.](https://medium.com/@seft/smashscan-using-neural-networks-to-analyze-super-smash-bros-melee-part-2-b13ecfbf4e0d)
 
 ## Instalation Guide
-1. Install the following python packages via pip. The version numbers are not necessarily required, I just provided them as a reference for when I wrote this guide: numpy (1.11.0), matplotlib (1.5.1), cython (0.28.5), opencv-python (3.4.2.17), youtube-dl (2018.8.22 - 2018 version much faster than 2015-2017).
-2. Install tensorflow (1.10) via pip if you don't have an NVIDIA GPU. Otherwise, install tensorflow-gpu. I followed [Mark Jay's tutorial](https://www.youtube.com/watch?v=vxjbL5iN1XY) for Ubuntu 18.04. For reference my NVIDIA driver is 390.77, my CUDA version is 9.0.176, CUDANN version is 7.0.5, and tensorflow-gpu version is 1.5. I had the most trouble installing this and getting test tensorflow-gpu examples to work. Make sure to install these in the correct order, and I'd avoid installing the newest versions of these drivers/packages. I tried and couldn't get the test examples to work.
+1. Create a Python 3.6 environment (required by tensorflow) locally or in a conda environment. Install the following python packages; The version numbers are not necessarily required, I just provided them as a reference for when I wrote this guide: numpy (1.11.0), matplotlib (1.5.1), cython (0.28.5), opencv-python (3.4.2.17), youtube-dl (2018.8.22 - 2018 version much faster than 2015-2017).
+2. Install tensorflow if you don't have an NVIDIA GPU. Otherwise, install tensorflow-gpu. I followed [Mark Jay's tutorial](https://www.youtube.com/watch?v=vxjbL5iN1XY) for Ubuntu 18.04. 
+    * CUDA 9.0 [Download](https://developer.nvidia.com/cuda-toolkit-archive) [Docs](https://docs.nvidia.com/cuda/archive/9.0/)
+    * CUDNN 7.4.2 [Download](https://developer.nvidia.com/rdp/cudnn-download) [Docs](https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html)
+    * tensorflow-gpu (>=1.9.0) [Download](https://www.tensorflow.org/install/pip) [Docs](https://www.tensorflow.org/install/gpu)
 2. Install the [DarkFlow](https://github.com/thtrieu/darkflow) repository globally. I followed [Mark Jay's tutorials](https://www.youtube.com/watch?v=PyjBd7IDYZs&list=PLX-LrBk6h3wSGvuTnxB2Kj358XfctL4BM) to understand the basics of the DarkFlow. 
 3. Clone this repo and create an `annotations`, `output`, and `videos` folder inside. The `.gitignore` doesn't like committing "empty" folders.
 
