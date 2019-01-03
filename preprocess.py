@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 # A custom filter that works on an int array that represents the timeline of 
 # labels (stages) found by tfnet. (-1) represents that no stage was found. The 
@@ -148,3 +149,28 @@ def get_match_bboxes(match_ranges, bbox_hist):
         match_bboxes.append((tl, br))
 
     return match_bboxes
+
+
+# Display the dirty and clean history plots. Each plot is
+# associated with a dict of lists that contain the labelled
+# history of what was returned by the DarkNet object.
+def show_hist_plots(dirty_hist, clean_hist, y_labels):
+    # Create a figure with two plots (dirty and clean)
+    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+    fig.canvas.set_window_title("History Plots")
+
+    # Setup dirty history scatter plot.
+    ax1.scatter(range(len(dirty_hist)), dirty_hist)
+    ax1.yaxis.set_ticks(range(len(y_labels)))
+    ax1.yaxis.set_ticklabels(y_labels, range(len(y_labels)))
+    ax1.set_xlim([-1, len(dirty_hist)])
+    ax1.set_ylim([-0.5, len(y_labels) - 0.5])
+
+    # Setup cleaned history scatter plot.
+    ax2.scatter(range(len(clean_hist)), clean_hist)
+    ax2.yaxis.set_ticks(range(len(y_labels)))
+    ax2.yaxis.set_ticklabels(y_labels, range(len(y_labels)))
+    ax2.set_xlim([-1, len(dirty_hist)])
+    ax2.set_ylim([-0.5, len(y_labels) - 0.5])
+
+    plt.show()

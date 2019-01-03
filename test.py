@@ -1,6 +1,5 @@
 from cv2 import cv2
 from darkflow.net.build import TFNet
-import matplotlib.pyplot as plt
 import numpy as np
 import time
 import argparse
@@ -109,7 +108,7 @@ def show_tfnet_results(video_name, step_size,
     # sections that are smaller than a particular size.
     clean_hist = preprocess.hist_fill_filter(dirty_hist)
     clean_hist = preprocess.hist_size_filter(clean_hist, step_size)
-    show_hist_plots(dirty_hist, clean_hist, labels_list)
+    preprocess.show_hist_plots(dirty_hist, clean_hist, labels_list)
 
     # Get a list of the matches and avg bboxes according to clean_hist.
     match_ranges = preprocess.get_match_ranges(clean_hist)
@@ -133,31 +132,6 @@ def show_tfnet_results(video_name, step_size,
 
     capture.release()
     cv2.destroyAllWindows()
-
-
-# Display the dirty and clean history plots. Each plot is
-# associated with a dict of lists that contain the labelled
-# history of what was returned by the DarkNet object.
-def show_hist_plots(dirty_hist, clean_hist, y_labels):
-    # Create a figure with two plots (dirty and clean)
-    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
-    fig.canvas.set_window_title("History Plots")
-
-    # Setup dirty history scatter plot.
-    ax1.scatter(range(len(dirty_hist)), dirty_hist)
-    ax1.yaxis.set_ticks(range(len(y_labels)))
-    ax1.yaxis.set_ticklabels(y_labels, range(len(y_labels)))
-    ax1.set_xlim([-1, len(dirty_hist)])
-    ax1.set_ylim([-0.5, len(y_labels) - 0.5])
-
-    # Setup cleaned history scatter plot.
-    ax2.scatter(range(len(clean_hist)), clean_hist)
-    ax2.yaxis.set_ticks(range(len(y_labels)))
-    ax2.yaxis.set_ticklabels(y_labels, range(len(y_labels)))
-    ax2.set_xlim([-1, len(dirty_hist)])
-    ax2.set_ylim([-0.5, len(y_labels) - 0.5])
-
-    plt.show()
 
 
 if __name__ == '__main__':
