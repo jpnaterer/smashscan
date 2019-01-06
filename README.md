@@ -61,11 +61,11 @@ Use `label.py` to save frames to the `images` directory and labels to the `annot
 python label.py example-video-name.mp4
 ```
 
-`left` - move backward 1 frame  
-`right` - move forward 1 frame  
-`alt+direction` - move 10 frames  
-`ctrl+direction` - move 100 frames  
-`shift+direction` - move 1000 frames  
+`,` - move backward 1 frame  
+`.` - move forward 1 frame  
+`direction` - move 10 frames  
+`alt+direction` - move 100 frames  
+`ctrl+direction` - move 1000 frames  
 
 `left-click -> release` - draw bounding box  
 `r` - begin recording once you are satisfied with the box drawn  
@@ -128,4 +128,11 @@ Below are a list of tournaments I trained on for the initial release. The size o
 | The Gang | 33134 - 34861 | 1730 |
 | Noods Noods Noods | 34862 - 36760 | 1899 |
 | Valhalla | 36761 - 38503 | 1743 |
+| Player Cams | 38503 - 41547 | 3044 |
+| Holiday Bash 2017 | 41547 - 42628 | 1082 |
+| Smash Valley VII | 42629 - 43944 | 1316 |
+| Heir 5 | 43945 - 45062 | 1117 |
+| Momocon 2018 (R) | 45063 - 46170 | 1108|
+| No Fun Allowed 2 (R) | 46171 - 48285 | 2115 |
+| Poi Poundaz | 48286 - 49782 | 1497 |
 

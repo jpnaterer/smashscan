@@ -4,6 +4,7 @@ import argparse
 import youtube_dl
 
 # https://github.com/rg3/youtube-dl
+# View video formats with bash: youtube-dl -F "video_id"
 def download_video(video_id, save_name, save_dir):
 
     output_file_path = '%s/%s' % (save_dir, save_name)
@@ -11,7 +12,9 @@ def download_video(video_id, save_name, save_dir):
         os.remove(output_file_path)
     
     ydl_opts = {
-        'format': 'bestvideo[ext=mp4][height=360]/best[ext=mp4][height=360]',
+        'format': 'bestvideo[ext=mp4][height=360]\
+            [protocol!=http_dash_segments]/best[ext=mp4][height=360]\
+            [protocol!=http_dash_segments]',
         'outtmpl': output_file_path
     }
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:

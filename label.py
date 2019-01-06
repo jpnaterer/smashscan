@@ -76,21 +76,21 @@ class LabelPlot:
     def onkeypress(self, event):
 
         # Navigate the video with modifiers alt, ctrl, and shift.
-        if event.key == 'right':
+        if event.key == '.':
             self.inc_current_frame_num(1)
-        elif event.key == 'alt+right':
+        elif event.key == 'right':
             self.inc_current_frame_num(10)
-        elif event.key == 'ctrl+right':
+        elif event.key == 'alt+right':
             self.inc_current_frame_num(100)
-        elif event.key == 'shift+right':
+        elif event.key == 'ctrl+right':
             self.inc_current_frame_num(1000)
-        elif event.key == 'left':
+        elif event.key == ',':
             self.inc_current_frame_num(-1)
-        elif event.key == 'alt+left':
+        elif event.key == 'left':
             self.inc_current_frame_num(-10)
-        elif event.key == 'ctrl+left':
+        elif event.key == 'alt+left':
             self.inc_current_frame_num(-100)
-        elif event.key == 'shift+left':
+        elif event.key == 'ctrl+left':
             self.inc_current_frame_num(-1000)
 
         # Begin recording after drawing a box. Make sure to draw box before.
@@ -128,6 +128,7 @@ class LabelPlot:
             save_image_ranges(self.video_location, self.stage_str_rec_list,
                 self.frame_range_list, self.tl_list, self.br_list, 
                 self.save_step_size, self.annot_dir, self.image_dir)
+            quit()
 
         # Update the matplotlib plt each time any key is pressed.
         self.show_frame()
@@ -252,16 +253,17 @@ def write_xml(img_shape, image_num, annot_num,
     ET.SubElement(size, 'height').text = str(height)
     ET.SubElement(size, 'depth').text = str(depth)
 
-    ob = ET.SubElement(annotation, 'object')
-    ET.SubElement(ob, 'name').text = category_str
-    ET.SubElement(ob, 'pose').text = 'Unspecified'
-    ET.SubElement(ob, 'truncated').text = '0'
-    ET.SubElement(ob, 'difficult').text = '0'
-    bbox = ET.SubElement(ob, 'bndbox')
-    ET.SubElement(bbox, 'xmin').text = str(tl[0])
-    ET.SubElement(bbox, 'ymin').text = str(tl[1])
-    ET.SubElement(bbox, 'xmax').text = str(br[0])
-    ET.SubElement(bbox, 'ymax').text = str(br[1])
+    if category_str != "none":
+        ob = ET.SubElement(annotation, 'object')
+        ET.SubElement(ob, 'name').text = category_str
+        ET.SubElement(ob, 'pose').text = 'Unspecified'
+        ET.SubElement(ob, 'truncated').text = '0'
+        ET.SubElement(ob, 'difficult').text = '0'
+        bbox = ET.SubElement(ob, 'bndbox')
+        ET.SubElement(bbox, 'xmin').text = str(tl[0])
+        ET.SubElement(bbox, 'ymin').text = str(tl[1])
+        ET.SubElement(bbox, 'xmax').text = str(br[0])
+        ET.SubElement(bbox, 'ymax').text = str(br[1])
 
     xml_str = ET.tostring(annotation)
     root = etree.fromstring(xml_str)
@@ -288,7 +290,7 @@ if __name__ == '__main__':
 
     # List would be changed for another game or set of stages.
     label_list = ["battlefield", "dreamland", "finaldest", 
-        "fountain", "pokemon", "yoshis"]
+        "fountain", "pokemon", "yoshis", "none"]
     
     lp = LabelPlot(args.video_name, label_list, args.save_step_size, 
         args.annot_dir, args.image_dir, args.video_dir)
