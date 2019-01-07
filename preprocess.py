@@ -1,5 +1,19 @@
 import numpy as np
+import cv2
 import matplotlib.pyplot as plt
+
+# Return the tfnet prediction with the highest confidence.
+def get_tfnet_result(tfnet, frame):
+    results = tfnet.return_predict(frame)
+    result = dict()
+
+    max_confidence = 0
+    for result_iter in results:
+        if result_iter["confidence"] > max_confidence:
+            result = result_iter
+            max_confidence = result_iter["confidence"]
+    return result
+
 
 # A custom filter that works on an int array that represents the timeline of 
 # labels (stages) found by tfnet. (-1) represents that no stage was found. The 
@@ -23,7 +37,7 @@ def hist_fill_filter(dirty_hist_in, differ_thresh=4):
     # Used to store the stage (state) that most recently differed from the 
     # current state. current_state will become differ_state if differ_thresh
     # number of timestamps are consistent in a row.
-    differ_state = -1  
+    differ_state = -1
 
     # The counter used to count the number of times the timestep differs. If
     # the timestep differs but not consistently (different from differ_state),
@@ -142,10 +156,10 @@ def get_match_bboxes(match_ranges, bbox_hist):
                 br_sum = np.add(br_sum, bbox_hist[i][1])
 
         # Round the (tl, br) avg to the nearest int and append to the list.
-        tl = (int(round(tl_sum[0]/match_size)), 
-            int(round(tl_sum[1]/match_size)))
-        br = (int(round(br_sum[0]/match_size)), 
-            int(round(br_sum[1]/match_size)))
+        tl = (int(round(tl_sum[0]/match_size)),
+              int(round(tl_sum[1]/match_size)))
+        br = (int(round(br_sum[0]/match_size)),
+              int(round(br_sum[1]/match_size)))
         match_bboxes.append((tl, br))
 
     return match_bboxes
@@ -174,3 +188,61 @@ def show_hist_plots(dirty_hist, clean_hist, y_labels):
     ax2.set_ylim([-0.5, len(y_labels) - 0.5])
 
     plt.show()
+
+
+# Uses tfnet to obtain a more accurate location of match start and end.
+def get_accurate_match_ranges(init_match_ranges, orig_step_size,
+    capture, tfnet, accurate_threshold=0.5):
+
+    # The final match range list to be returned.
+    final_match_ranges = list()
+
+    # The list of step sizes to be used for efficient video traversal.
+    ss_index = 0
+    step_size_list = [60, 29, 14, 6, 2, 1]
+    step_size = step_size_list[ss_index]
+
+    # Iterate through the final match ranges.
+    for match_range in init_match_ranges:
+
+        # Find accurate location of start of match.
+        start_prediction = match_range[0]*orig_step_size + 1
+        ss_index = 0
+        while True:
+            capture.set(cv2.CAP_PROP_POS_FRAMES, start_prediction - step_size)
+            _, frame = capture.read()
+            result = get_tfnet_result(tfnet, frame)
+
+            if result:
+                if result['confidence'] > accurate_threshold:
+                    start_prediction -= step_size
+                    continue
+
+            if step_size == 1:
+                break
+            else:
+                ss_index += 1
+                step_size = step_size_list[ss_index]
+
+        # Find accurate location of end of match.
+        end_prediction = match_range[1]*orig_step_size + 1
+        ss_index = 0
+        while True:
+            capture.set(cv2.CAP_PROP_POS_FRAMES, end_prediction + step_size)
+            _, frame = capture.read()
+            result = get_tfnet_result(tfnet, frame)
+
+            if result:
+                if result['confidence'] > accurate_threshold:
+                    end_prediction += step_size
+                    continue
+
+            if step_size == 1:
+                break
+            else:
+                ss_index += 1
+                step_size = step_size_list[ss_index]
+
+        final_match_ranges.append([start_prediction, end_prediction])
+
+    return final_match_ranges

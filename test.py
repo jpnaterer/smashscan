@@ -1,14 +1,12 @@
-from cv2 import cv2
-from darkflow.net.build import TFNet
-import numpy as np
 import time
 import argparse
-from datetime import datetime
+import cv2
+from darkflow.net.build import TFNet
 
 # SmashScan libraries
 import preprocess
 
-options = {
+TFNET_OPTIONS = {
     'config': 'cfg',
     'model': 'cfg/tiny-yolo-voc-6c.cfg',
     'metaLoad': 'cfg/tiny-yolo-voc-6c.meta',
@@ -17,11 +15,11 @@ options = {
     'gpu': 1.0
 }
 
-labels_list = ["battlefield", "dreamland", "finaldest", 
-    "fountain", "pokemon", "yoshis"]
+LABELS_LIST = ["battlefield", "dreamland", "finaldest",
+               "fountain", "pokemon", "yoshis"]
 
 # Display the main test plot.
-def show_tfnet_results(video_name, step_size, 
+def show_tfnet_results(video_name, step_size,
     videos_dir, save_flag, show_flag):
 
     # Create an OpenCV capture object. https://docs.opencv.org/3.4.2/
@@ -41,32 +39,25 @@ def show_tfnet_results(video_name, step_size,
         cv2.resizeWindow('frame', 1280, 720)
 
     # Initialize DarkFlow TFNet object with weights from cfg folder.
-    start_time = datetime.now()
-    tfnet = TFNet(options)
+    start_time = time.time()
+    tfnet = TFNet(TFNET_OPTIONS)
 
     # Iterate through video and use tfnet to perform object detection.
     # while (current_frame < total_frames):
     for current_frame in range(0, total_frames, step_size):
         capture.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
         _, frame = capture.read()
-        results = tfnet.return_predict(frame)
 
-        # Extract the result with the largest confidence.
-        max_confidence = 0
-        for result_iter in results:
-            if result_iter["confidence"] > max_confidence:
-                result = result_iter
-                max_confidence = result_iter["confidence"]
-
-        # Extract information from results (list of dicts).
-        if max_confidence != 0:
+        # Get the tfnet result with the largest confidence and extract info.
+        result = preprocess.get_tfnet_result(tfnet, frame)
+        if result:
             tl = (result['topleft']['x'], result['topleft']['y'])
             br = (result['bottomright']['x'], result['bottomright']['y'])
             label = result['label']
             confidence = result['confidence']
 
         # Display bounding box, label, and confidence.
-        if max_confidence != 0 and show_flag:
+        if result and show_flag:
             # Draw bounding box around frame's result.
             frame = cv2.rectangle(frame, tl, br, [0, 0, 255], 6)
 
@@ -77,12 +68,12 @@ def show_tfnet_results(video_name, step_size,
 
             # Add text with label and confidence to the displayed frame.
             text = '{}: {:.0f}%'.format(label, confidence * 100)
-            frame = cv2.putText(frame, text, text_tl, 
+            frame = cv2.putText(frame, text, text_tl,
                 cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 0), 2)
 
         # Store label if result found, or (-1) if no result was found.
-        if max_confidence != 0:
-            dirty_hist.append(labels_list.index(result['label']))
+        if result:
+            dirty_hist.append(LABELS_LIST.index(result['label']))
             bbox_hist.append((tl, br))
         else:
             dirty_hist.append(-1)
@@ -99,16 +90,15 @@ def show_tfnet_results(video_name, step_size,
             cv2.imwrite('output/frame%07d.png' % current_frame, frame)
 
     # End the TfNet session and display time taken to complete.
-    tfnet.sess.close()
-    finish_time = (datetime.now() - start_time).total_seconds()
-    print("Successfully collected tfnet results in %.2fs" % finish_time)
+    finish_time = time.time() - start_time
+    print("Initial video sweep tfnet results in %.2fs" % finish_time)
     print("\tAverage FPS: %.2f" % (len(dirty_hist) / finish_time))
 
-    # Fill holes in the history timeline list, and filter out timeline 
+    # Fill holes in the history timeline list, and filter out timeline
     # sections that are smaller than a particular size.
     clean_hist = preprocess.hist_fill_filter(dirty_hist)
     clean_hist = preprocess.hist_size_filter(clean_hist, step_size)
-    preprocess.show_hist_plots(dirty_hist, clean_hist, labels_list)
+    preprocess.show_hist_plots(dirty_hist, clean_hist, LABELS_LIST)
 
     # Get a list of the matches and avg bboxes according to clean_hist.
     match_ranges = preprocess.get_match_ranges(clean_hist)
@@ -125,11 +115,30 @@ def show_tfnet_results(video_name, step_size,
 
         capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[1]*step_size)
         _, frame = capture.read()
+        frame = cv2.rectangle(frame, match_bboxes[i][0],
+            match_bboxes[i][1], [0, 0, 255], 6)
+        cv2.imshow('frame', frame)
+        cv2.waitKey(0)
+
+    # Improving match range accuracy.
+    accurate_match_ranges = preprocess.get_accurate_match_ranges(
+        match_ranges, step_size, capture, tfnet)
+    for i, match_range in enumerate(accurate_match_ranges):
+        capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[0])
+        _, frame = capture.read()
         frame = cv2.rectangle(frame, match_bboxes[i][0], 
             match_bboxes[i][1], [0, 0, 255], 6)
         cv2.imshow('frame', frame)
         cv2.waitKey(0)
 
+        capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[1])
+        _, frame = capture.read()
+        frame = cv2.rectangle(frame, match_bboxes[i][0],
+            match_bboxes[i][1], [0, 0, 255], 6)
+        cv2.imshow('frame', frame)
+        cv2.waitKey(0)
+
+    tfnet.sess.close()
     capture.release()
     cv2.destroyAllWindows()
 
@@ -140,15 +149,15 @@ if __name__ == '__main__':
     parser.add_argument('video_name', type=str, 
         help='The name of the video file to be tested on.')
     parser.add_argument('-save', '--save_flag', action='store_true',
-        help='A flag used to determine if frames are saved.') 
+        help='A flag used to determine if frames are saved.')
     parser.add_argument('-hide', '--hide_flag', action='store_true',
-        help='A flag used to hide the plot, so testing runs faster.') 
-    parser.add_argument('-step', '--step_size', type=int, default=60, 
-        nargs='?', help='The step size used when testing.')   
-    parser.add_argument('-dir', '--video_dir', type=str, default='videos', 
+        help='A flag used to hide the plot, so testing runs faster.')
+    parser.add_argument('-step', '--step_size', type=int, default=60,
+        nargs='?', help='The step size used when testing.')
+    parser.add_argument('-dir', '--video_dir', type=str, default='videos',
         nargs='?', help='The video file directory to be used.')
-    
+
     args = parser.parse_args()
 
-    show_tfnet_results(args.video_name, args.step_size, 
+    show_tfnet_results(args.video_name, args.step_size,
         args.video_dir, args.save_flag, not args.hide_flag)

@@ -1,8 +1,8 @@
 import os
 import time
 import argparse
-import PyQt5.QtCore as qtc
 import xml.etree.cElementTree as ET
+import PyQt5.QtCore as qtc
 from lxml import etree
 from cv2 import cv2
 import matplotlib.pyplot as plt
@@ -109,7 +109,7 @@ class LabelPlot:
         elif event.key == 'enter':
             if self.is_recording:
                 self.final_frame_num = int(self.current_frame_num)
-                print ("Ending recording on frame %s" % self.final_frame_num)
+                print("Ending recording on frame %s" % self.final_frame_num)
 
                 stage_num = int(input('Enter stage number: '))
                 self.stage_str_rec_list.append(self.label_list[stage_num])
@@ -133,14 +133,14 @@ class LabelPlot:
         # Update the matplotlib plt each time any key is pressed.
         self.show_frame()
 
-    
+
     # Makes sure the navigation keys don't go beyond the video size.
     def inc_current_frame_num(self, delta):
         if self.current_frame_num + delta > self.total_frames - 1:
             self.current_frame_num = self.total_frames - 1
         elif self.current_frame_num + delta < 0:
             self.current_frame_num = 0
-        else: 
+        else:
             self.current_frame_num += delta
 
     # Shows the frame based on the current_frame_num variable. Also 
@@ -156,7 +156,7 @@ class LabelPlot:
             current_height = self.br_record[1] - self.tl_record[1]
             self.rect_patch = patches.Rectangle(self.tl_record,
                 current_width, current_height,
-                linewidth=1,edgecolor='r',facecolor='none')
+                linewidth=1, edgecolor='r', facecolor='none')
             self.ax.add_patch(self.rect_patch)
 
         plt.draw()
@@ -194,11 +194,11 @@ def save_image_range(video_str, stage_str, frame_range,
 
     frame_range_diff = (frame_range[1] - frame_range[0])/step_size + 1
     print("Saving %d frames of %s" % (frame_range_diff, stage_str))
-    
+
     save_num = 0
     capture = cv2.VideoCapture(video_str)
     start_time = time.time()
-    
+
     for frame_num in range(frame_range[0], frame_range[1], step_size):
         capture.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
         _, frame = capture.read()
@@ -213,7 +213,7 @@ def save_image_range(video_str, stage_str, frame_range,
 
         write_xml(frame.shape, image_num, annot_num, 
             stage_str, tl, br, annot_dir, image_dir)
-    
+
     capture.release()
 
     total_time = time.time() - start_time
@@ -276,10 +276,10 @@ def write_xml(img_shape, image_num, annot_num,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A labeling tool created \
         to label videos of Super Smash Bros Melee (SSBM) .')
-    parser.add_argument('video_name', type=str, 
+    parser.add_argument('video_name', type=str,
         help='The name of the video to label.')
     parser.add_argument('save_step_size', type=int, default=60, nargs='?',
-        help='The step size used when saving annotation/image pairs.')   
+        help='The step size used when saving annotation/image pairs.')
     parser.add_argument('annot_dir', type=str, default='annotations', nargs='?',
         help='The annotation file directory to be used.')
     parser.add_argument('image_dir', type=str, default='images', nargs='?',
@@ -289,9 +289,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # List would be changed for another game or set of stages.
-    label_list = ["battlefield", "dreamland", "finaldest", 
+    label_list = ["battlefield", "dreamland", "finaldest",
         "fountain", "pokemon", "yoshis", "none"]
-    
-    lp = LabelPlot(args.video_name, label_list, args.save_step_size, 
+
+    lp = LabelPlot(args.video_name, label_list, args.save_step_size,
         args.annot_dir, args.image_dir, args.video_dir)
     lp.show()
