@@ -5,6 +5,7 @@ from darkflow.net.build import TFNet
 
 # SmashScan libraries
 import preprocess
+import util
 
 TFNET_OPTIONS = {
     'config': 'cfg',
@@ -56,21 +57,6 @@ def show_tfnet_results(video_name, step_size,
             label = result['label']
             confidence = result['confidence']
 
-        # Display bounding box, label, and confidence.
-        if result and show_flag:
-            # Draw bounding box around frame's result.
-            frame = cv2.rectangle(frame, tl, br, [0, 0, 255], 6)
-
-            # Add a white rectangle to the frame to emphasize text.
-            text_tl = (tl[0] + 10, tl [1] + 30)
-            text_br = (text_tl[0] + 240, text_tl[1] + 20)
-            frame = cv2.rectangle(frame, tl, text_br, (255, 255, 255), -1)
-
-            # Add text with label and confidence to the displayed frame.
-            text = '{}: {:.0f}%'.format(label, confidence * 100)
-            frame = cv2.putText(frame, text, text_tl,
-                cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 0), 2)
-
         # Store label if result found, or (-1) if no result was found.
         if result:
             dirty_hist.append(LABELS_LIST.index(result['label']))
@@ -79,9 +65,16 @@ def show_tfnet_results(video_name, step_size,
             dirty_hist.append(-1)
             bbox_hist.append(-1)
 
-        # Display the frame if show_flag is enabled. Close if 'q' pressed.
+        # Display the frame if show_flag is enabled. Add a bounding box, and
+        # label+confidence string if a result was found. Exit if 'q' is pressed.
         if show_flag:
-            cv2.imshow('frame', frame)
+            if result:
+                util.show_frame(frame, bbox=[tl, br],
+                    text='{}: {:.0f}%'.format(label, confidence * 100))
+            else:
+                cv2.imshow('frame', frame)
+
+            # Exit the video iteration if 'q' is pressed.
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
@@ -105,38 +98,12 @@ def show_tfnet_results(video_name, step_size,
     match_bboxes = preprocess.get_match_bboxes(match_ranges, bbox_hist)
 
     # Show the beginning and end of each match according to the filters.
+    display_frames = list()
+    display_bboxes = list()
     for i, match_range in enumerate(match_ranges):
-        capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[0]*step_size)
-        _, frame = capture.read()
-        frame = cv2.rectangle(frame, match_bboxes[i][0], 
-            match_bboxes[i][1], [0, 0, 255], 6)
-        cv2.imshow('frame', frame)
-        cv2.waitKey(0)
-
-        capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[1]*step_size)
-        _, frame = capture.read()
-        frame = cv2.rectangle(frame, match_bboxes[i][0],
-            match_bboxes[i][1], [0, 0, 255], 6)
-        cv2.imshow('frame', frame)
-        cv2.waitKey(0)
-
-    # Improving match range accuracy.
-    accurate_match_ranges = preprocess.get_accurate_match_ranges(
-        match_ranges, step_size, capture, tfnet)
-    for i, match_range in enumerate(accurate_match_ranges):
-        capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[0])
-        _, frame = capture.read()
-        frame = cv2.rectangle(frame, match_bboxes[i][0], 
-            match_bboxes[i][1], [0, 0, 255], 6)
-        cv2.imshow('frame', frame)
-        cv2.waitKey(0)
-
-        capture.set(cv2.CAP_PROP_POS_FRAMES, match_range[1])
-        _, frame = capture.read()
-        frame = cv2.rectangle(frame, match_bboxes[i][0],
-            match_bboxes[i][1], [0, 0, 255], 6)
-        cv2.imshow('frame', frame)
-        cv2.waitKey(0)
+        display_frames += [match_range[0]*step_size, match_range[1]*step_size]
+        display_bboxes += [match_bboxes[i], match_bboxes[i]]
+    util.show_frames(capture, display_frames, display_bboxes)
 
     tfnet.sess.close()
     capture.release()
