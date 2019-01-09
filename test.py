@@ -20,11 +20,10 @@ LABELS_LIST = ["battlefield", "dreamland", "finaldest",
                "fountain", "pokemon", "yoshis"]
 
 # Display the main test plot.
-def show_tfnet_results(video_name, step_size,
-    videos_dir, save_flag, show_flag):
+def show_tfnet_results(video_location, step_size, save_flag, show_flag):
 
     # Create an OpenCV capture object. https://docs.opencv.org/3.4.2/
-    capture = cv2.VideoCapture('%s/%s' % (videos_dir, video_name))
+    capture = cv2.VideoCapture(video_location)
     total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # A list of the label history to be used in the cleaning algorithm. It 
@@ -44,7 +43,6 @@ def show_tfnet_results(video_name, step_size,
     tfnet = TFNet(TFNET_OPTIONS)
 
     # Iterate through video and use tfnet to perform object detection.
-    # while (current_frame < total_frames):
     for current_frame in range(0, total_frames, step_size):
         capture.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
         _, frame = capture.read()
@@ -110,10 +108,36 @@ def show_tfnet_results(video_name, step_size,
     cv2.destroyAllWindows()
 
 
+def show_tm_results(video_location, step_size):
+    # Create an OpenCV capture object. https://docs.opencv.org/3.4.2/
+    capture = cv2.VideoCapture(video_location)
+    total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # Read the percentage sign image file and extract a binary mask based
+    # off of the alpha channel. Also, resize to the 360p base height.
+    template, mask = util.get_image_and_mask("resources/pct.png", 360/480)
+    h, w = template.shape[:2]
+
+    # Iterate through video and use cv2 to perform template matching.
+    for current_frame in range(0, total_frames, step_size):
+        capture.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
+        _, frame = capture.read()
+
+        match_mat = cv2.matchTemplate(
+            frame, template, cv2.TM_CCORR_NORMED, mask=mask)
+        _, max_val, _, top_left = cv2.minMaxLoc(match_mat)
+        bot_right = (top_left[0] + w, top_left[1] + h)
+
+        label = "{:0.4f}".format(max_val)
+        util.show_frame(frame, bbox=[top_left, bot_right], text=label)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A testing tool used to \
         analyze the performance of trained DarkNet weights.')
-    parser.add_argument('video_name', type=str, 
+    parser.add_argument('video_name', type=str,
         help='The name of the video file to be tested on.')
     parser.add_argument('-save', '--save_flag', action='store_true',
         help='A flag used to determine if frames are saved.')
@@ -124,7 +148,17 @@ if __name__ == '__main__':
     parser.add_argument('-dir', '--video_dir', type=str, default='videos',
         nargs='?', help='The video file directory to be used.')
 
-    args = parser.parse_args()
+    # Add CLI arguments to run various smashscan tests.
+    parser.add_argument('-tm_test', '--tm_test_flag', action='store_true',
+        help='A flag used to run the template matching test.')
 
-    show_tfnet_results(args.video_name, args.step_size,
-        args.video_dir, args.save_flag, not args.hide_flag)
+    # Parse the CLI arguments and create a compact video location string.
+    args = parser.parse_args()
+    video_location = "{:s}/{:s}".format(args.video_dir, args.video_name)
+
+    # Run the smashscan test indicated by the input flags (tfnet by default).
+    if args.tm_test_flag:
+        show_tm_results(video_location, args.step_size)
+    else:
+        show_tfnet_results(video_location, args.step_size,
+            args.save_flag, not args.hide_flag)
