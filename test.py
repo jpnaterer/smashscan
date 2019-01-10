@@ -6,6 +6,7 @@ from darkflow.net.build import TFNet
 # SmashScan libraries
 import preprocess
 import util
+import template_matcher
 
 TFNET_OPTIONS = {
     'config': 'cfg',
@@ -19,14 +20,14 @@ TFNET_OPTIONS = {
 LABELS_LIST = ["battlefield", "dreamland", "finaldest",
                "fountain", "pokemon", "yoshis"]
 
-# Display the main test plot.
+# Display the main tfnet results.
 def show_tfnet_results(video_location, step_size, save_flag, show_flag):
 
     # Create an OpenCV capture object. https://docs.opencv.org/3.4.2/
     capture = cv2.VideoCapture(video_location)
     total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    # A list of the label history to be used in the cleaning algorithm. It 
+    # A list of the label history to be used in the cleaning algorithm. It
     # stores the labels as integers, while no result found is (-1).
     dirty_hist = list()
 
@@ -108,37 +109,49 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
     cv2.destroyAllWindows()
 
 
-def show_tm_results(video_location, step_size):
+# Run the TM test over a wide range of input parameters.
+def run_all_tm_tests(video_location, step_size, show_flag):
     # Create an OpenCV capture object. https://docs.opencv.org/3.4.2/
     capture = cv2.VideoCapture(video_location)
-    total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    # Read the percentage sign image file and extract a binary mask based
-    # off of the alpha channel. Also, resize to the 360p base height.
-    template, mask = util.get_image_and_mask("resources/pct.png", 360/480)
-    h, w = template.shape[:2]
+    # Run the TM test over various parameter configurations,
+    run_tm_test(capture, step_size, gray_flag=False,
+        roi_flag=False, show_flag=show_flag)
+    run_tm_test(capture, step_size, gray_flag=True,
+        roi_flag=False, show_flag=show_flag)
+    run_tm_test(capture, step_size, gray_flag=False,
+        roi_flag=True, show_flag=show_flag)
+    run_tm_test(capture, step_size, gray_flag=True,
+        roi_flag=True, show_flag=show_flag)
 
-    # Iterate through video and use cv2 to perform template matching.
-    for current_frame in range(0, total_frames, step_size):
-        capture.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
-        _, frame = capture.read()
+    # Release the OpenCV capture object.
+    capture.release()
 
-        match_mat = cv2.matchTemplate(
-            frame, template, cv2.TM_CCORR_NORMED, mask=mask)
-        _, max_val, _, top_left = cv2.minMaxLoc(match_mat)
-        bot_right = (top_left[0] + w, top_left[1] + h)
 
-        label = "{:0.4f}".format(max_val)
-        util.show_frame(frame, bbox=[top_left, bot_right], text=label)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+# Run a single TM test over a given group of input parameters.
+def run_tm_test(capture, step_size, gray_flag, roi_flag, show_flag):
+    start_time = time.time()
+    template_matcher.show_tm_results(capture, step_size, frame_range=[0, 3000],
+        gray_flag=gray_flag, roi_flag=roi_flag, show_flag=show_flag)
+    finish_time = time.time() - start_time
+
+    # Display the flags used and the time taken to complete the test.
+    print("==== Template Matching Test ====")
+    print("\tgray_flag={}".format(gray_flag))
+    print("\troi_flag={}".format(roi_flag))
+    print("\tshow_flag={}".format(show_flag))
+    print("\tTotal time: {:.2f}s".format(finish_time))
+    print("\tAverage FPS: {:.2f}".format((3000 // step_size) / finish_time))
 
 
 if __name__ == '__main__':
+    # Create a CLI parser and add a video file positional argument.
     parser = argparse.ArgumentParser(description='A testing tool used to \
         analyze the performance of trained DarkNet weights.')
     parser.add_argument('video_name', type=str,
         help='The name of the video file to be tested on.')
+
+    # Add a number of keyword arguments for various testing parameters.
     parser.add_argument('-save', '--save_flag', action='store_true',
         help='A flag used to determine if frames are saved.')
     parser.add_argument('-hide', '--hide_flag', action='store_true',
@@ -151,6 +164,8 @@ if __name__ == '__main__':
     # Add CLI arguments to run various smashscan tests.
     parser.add_argument('-tm_test', '--tm_test_flag', action='store_true',
         help='A flag used to run the template matching test.')
+    parser.add_argument('-show', '--show_flag', action='store_true',
+        help='A flag used to display the results as each test runs.')
 
     # Parse the CLI arguments and create a compact video location string.
     args = parser.parse_args()
@@ -158,7 +173,7 @@ if __name__ == '__main__':
 
     # Run the smashscan test indicated by the input flags (tfnet by default).
     if args.tm_test_flag:
-        show_tm_results(video_location, args.step_size)
+        run_all_tm_tests(video_location, args.step_size, args.show_flag)
     else:
         show_tfnet_results(video_location, args.step_size,
             args.save_flag, not args.hide_flag)
