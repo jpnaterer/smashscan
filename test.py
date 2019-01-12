@@ -110,18 +110,18 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
 
 
 # Run the TM test over a wide range of input parameters.
-def run_all_tm_tests(video_location, step_size, show_flag):
+def run_all_tm_tests(video_location, step_size, start_fnum, show_flag):
     # Create an OpenCV capture object. https://docs.opencv.org/3.4.2/
     capture = cv2.VideoCapture(video_location)
 
     # Run the TM test over various parameter configurations,
-    run_tm_test(capture, step_size, gray_flag=False,
+    run_tm_test(capture, step_size, start_fnum, gray_flag=False,
         roi_flag=False, show_flag=show_flag)
-    run_tm_test(capture, step_size, gray_flag=True,
+    run_tm_test(capture, step_size, start_fnum, gray_flag=True,
         roi_flag=False, show_flag=show_flag)
-    run_tm_test(capture, step_size, gray_flag=False,
+    run_tm_test(capture, step_size, start_fnum, gray_flag=False,
         roi_flag=True, show_flag=show_flag)
-    run_tm_test(capture, step_size, gray_flag=True,
+    run_tm_test(capture, step_size, start_fnum, gray_flag=True,
         roi_flag=True, show_flag=show_flag)
 
     # Release the OpenCV capture object.
@@ -129,11 +129,20 @@ def run_all_tm_tests(video_location, step_size, show_flag):
 
 
 # Run a single TM test over a given group of input parameters.
-def run_tm_test(capture, step_size, gray_flag, roi_flag, show_flag):
+def run_tm_test(capture, step_size, start_fnum, 
+    gray_flag, roi_flag, show_flag):
+
+    # Define the range of frames to be scanned during the test.
+    test_range = 3000
+    end_fnum = start_fnum + test_range
+
+    # Start a timer and complete the TM test.
     start_time = time.time()
-    template_matcher.show_tm_results(capture, step_size, frame_range=[0, 3000],
-        gray_flag=gray_flag, roi_flag=roi_flag, show_flag=show_flag)
+    template_matcher.tm_test(capture, step_size,
+        frame_range=[start_fnum, end_fnum], gray_flag=gray_flag,
+        roi_flag=roi_flag, show_flag=show_flag)
     finish_time = time.time() - start_time
+    average_fps = (test_range // step_size) / finish_time
 
     # Display the flags used and the time taken to complete the test.
     print("==== Template Matching Test ====")
@@ -141,7 +150,7 @@ def run_tm_test(capture, step_size, gray_flag, roi_flag, show_flag):
     print("\troi_flag={}".format(roi_flag))
     print("\tshow_flag={}".format(show_flag))
     print("\tTotal time: {:.2f}s".format(finish_time))
-    print("\tAverage FPS: {:.2f}".format((3000 // step_size) / finish_time))
+    print("\tAverage FPS: {:.2f}".format(average_fps))
 
 
 if __name__ == '__main__':
@@ -166,6 +175,8 @@ if __name__ == '__main__':
         help='A flag used to run the template matching test.')
     parser.add_argument('-show', '--show_flag', action='store_true',
         help='A flag used to display the results as each test runs.')
+    parser.add_argument('-start', '--start_fnum', type=int, default=0,
+        nargs='?', help='The initial frame to begin testing.')
 
     # Parse the CLI arguments and create a compact video location string.
     args = parser.parse_args()
@@ -173,7 +184,8 @@ if __name__ == '__main__':
 
     # Run the smashscan test indicated by the input flags (tfnet by default).
     if args.tm_test_flag:
-        run_all_tm_tests(video_location, args.step_size, args.show_flag)
+        run_all_tm_tests(video_location, args.step_size, 
+            args.start_fnum, args.show_flag)
     else:
         show_tfnet_results(video_location, args.step_size,
             args.save_flag, not args.hide_flag)

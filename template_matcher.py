@@ -9,7 +9,7 @@ import util
 # frame numbers to be surveyed, gray_flag for a grayscale or BGR analysis,
 # roi_flag for only a sub-image (region of interest) to be searched, and
 # show_flag which displays results with the cv2.imshow() window.
-def show_tm_results(capture, step_size, frame_range=None,
+def tm_test(capture, step_size, frame_range=None,
     gray_flag=True, roi_flag=True, show_flag=False):
 
     # Set the starting and stopping frame number to search for TM results. If
@@ -29,21 +29,21 @@ def show_tm_results(capture, step_size, frame_range=None,
         frame = util.get_frame(capture, current_fnum, gray_flag)
 
         # Get the confidence and location of cv2.matchTemplate().
-        confidence, tl = get_tm_result(frame, template_img, 
-            template_mask, roi_flag=roi_flag)
+        confidence_list, tl_list = get_tm_results(frame, template_img,
+            template_mask, num_results=4, roi_flag=roi_flag)
 
         # Display the frame with an accuracy label if show_flag is enabled.
         if show_flag:
-            br = (tl[0] + w, tl[1] + h)
-            label = "{:0.4f}".format(confidence)
-            util.show_frame(frame, bbox=[tl, br], text=label)
+            show_tm_results(frame, confidence_list, tl_list, w, h)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
 
 # Return the confidence and location of the result of cv2.matchTemplate().
-# Parameters include an roi_flag to only search a sub-region of the frame.
-def get_tm_result(frame, template_img, template_mask, roi_flag=True):
+# Parameters include num_results to specify the number of templates to search,
+# and an roi_flag to only search a sub-region of the frame.
+def get_tm_results(frame, template_img, template_mask, 
+    num_results, roi_flag=True):
 
     # Assuming a Wide 360p format (640×360), only search the bottom quarter
     # of the input frame for the template if the roi_flag is enabled.
@@ -53,13 +53,48 @@ def get_tm_result(frame, template_img, template_mask, roi_flag=True):
     # Match the template using a normalized cross-correlation method.
     match_mat = cv2.matchTemplate(
         frame, template_img, cv2.TM_CCORR_NORMED, mask=template_mask)
-    _, max_val, _, top_left = cv2.minMaxLoc(match_mat)
+
+    ### TODO: Comment
+    max_val_list, top_left_list = get_match_results(match_mat, num_results)
+    match_img = np.array(match_mat*255, dtype=np.uint8)
+    cv2.imshow("match", match_img)
+    cv2.waitKey(0)
+    ###
 
     # Compensate for point location if a region of interest was used.
     if roi_flag:
-        top_left = (top_left[0], top_left[1] + 270)
+        for i in range(num_results):
+            top_left_list[i] = (top_left_list[i][0], top_left_list[i][1] + 270)
+        #top_left = (top_left[0], top_left[1] + 270)
 
-    return max_val, top_left
+    return max_val_list, top_left_list
+
+
+# Take the result of cv2.matchTemplate, and find the n-most probable locations
+# of a template match. To find multiple locations, the region around a 
+# successful match is zeroed. Return a list of the confidences and locations.
+def get_match_results(match_mat, num_results):
+    max_val_list, top_left_list = list(), list()
+    match_mat_dims = match_mat.shape
+    for _ in range(0, num_results):
+        _, max_val, _, top_left = cv2.minMaxLoc(match_mat)
+        set_subregion_to_zeros(match_mat, match_mat_dims, top_left, radius=2)
+        max_val_list.append(max_val)
+        top_left_list.append(top_left)
+    return(max_val_list, top_left_list)
+
+
+# Take a matrix and coordinate, and set the region around that coordinate
+# to zeros. This function also prevents matrix out of bound errors if the
+# input coordinate is near the matrix border. Also, the input coordinate
+# is organized as (x, y) while matrices are organized (row, column). Matrices
+# are pass by reference, so the input can be directly modified.
+def set_subregion_to_zeros(input_mat, mat_dims, center_xy, radius):
+    tl = (max(center_xy[1]-radius, 0),
+          max(center_xy[0]-radius, 0))
+    br = (min(center_xy[1]+radius+1, mat_dims[0]-1),
+          min(center_xy[0]+radius+1, mat_dims[1]-1))
+    input_mat[tl[0]:br[0], tl[1]:br[1]] = np.zeros((radius*2+1, radius*2+1))
 
 
 # Given an image location, extract the image and alpha (transparent) mask.
@@ -93,3 +128,13 @@ def get_image_and_mask(image_location, resize_ratio=None, gray_flag=False):
         mask = cv2.resize(mask, (w, h))
 
     return img, mask
+
+# TODO: Comment
+def show_tm_results(frame, confidence_list, top_left_list, width, height):
+    bbox_list = list()
+    for i, tl in enumerate(top_left_list):
+        br = (tl[0] + width, tl[1] + height)
+        bbox_list.append((tl, br))
+    label_list = ["{:0.3f}".format(i) for i in confidence_list]
+    label = " ".join(label_list)
+    util.show_frame(frame, bbox_list, text=label)

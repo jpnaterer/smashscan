@@ -10,26 +10,33 @@ def get_frame(capture, frame_num, gray_flag=False):
 
 
 # Given a frame and additional parameters, display a frame.
-def show_frame(frame, bbox=None, text=None):
+def show_frame(frame, bbox_list=None, text=None):
+
+    # A list of colors to indicate the order of bounding boxes drawn.
+    color_list = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]]
+
+    # Convert the frame to a BGR image if the input is grayscale.
+    if len(frame.shape) == 2:
+        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
     # Draw a bounding box, if a bounding box was given.
-    if bbox:
-        tl, br = bbox[0], bbox[1]
-        frame = cv2.rectangle(frame, tl, br, [0, 0, 255], 4)
+    if bbox_list:
+        for i, bbox in enumerate(bbox_list):
+            tl, br = bbox[0], bbox[1]
+            frame = cv2.rectangle(frame, tl, br, color_list[i], 4)
 
-    # Draw a text box, if a bounding box and text string was given.
-    if bbox and text:
-
+    # Draw a text box, if a text string was given.
+    if text:
         # Add a white rectangle to the frame to emphasize text.
         tbox_tl = (0, 0)
-        tbox_br = (tbox_tl[0] + 160, tbox_tl[1] + 25)
+        tbox_br = (tbox_tl[0] + 220, tbox_tl[1] + 25)
         frame = cv2.rectangle(frame, tbox_tl, tbox_br, (255, 255, 255), -1)
 
-        # Add the text on top of the rectangle to the displayed frame. The 
+        # Add the text on top of the rectangle to the displayed frame. The
         # cv2.putText() function places text based on the bottom left corner.
         text_bl = (tbox_tl[0] + 5, tbox_br[1] - 5)
         frame = cv2.putText(frame, text, text_bl,
-            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
 
     # Display the frame and return.
     cv2.imshow('frame', frame)
