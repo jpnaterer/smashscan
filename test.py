@@ -110,38 +110,45 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
 
 
 # Run the TM test over a wide range of input parameters.
-def run_all_tm_tests(video_location, step_size, start_fnum, show_flag):
+def run_all_tm_tests(test_type_str, video_location,
+    step_size, start_fnum, show_flag, wait_flag):
+
     # Create an OpenCV capture object. https://docs.opencv.org/3.4.2/
     capture = cv2.VideoCapture(video_location)
 
     # Run the TM test over various parameter configurations,
-    run_tm_test(capture, step_size, start_fnum, gray_flag=False,
-        roi_flag=False, show_flag=show_flag)
-    run_tm_test(capture, step_size, start_fnum, gray_flag=True,
-        roi_flag=False, show_flag=show_flag)
-    run_tm_test(capture, step_size, start_fnum, gray_flag=False,
-        roi_flag=True, show_flag=show_flag)
-    run_tm_test(capture, step_size, start_fnum, gray_flag=True,
-        roi_flag=True, show_flag=show_flag)
+    run_tm_test(capture, test_type_str, step_size, start_fnum,
+        show_flag, wait_flag, gray_flag=False, roi_flag=False)
+    run_tm_test(capture, test_type_str, step_size, start_fnum,
+        show_flag, wait_flag, gray_flag=True, roi_flag=False)
+    run_tm_test(capture, test_type_str, step_size, start_fnum,
+        show_flag, wait_flag, gray_flag=False, roi_flag=True)
+    run_tm_test(capture, test_type_str, step_size, start_fnum,
+        show_flag, wait_flag, gray_flag=True, roi_flag=True)
 
     # Release the OpenCV capture object.
     capture.release()
 
 
 # Run a single TM test over a given group of input parameters.
-def run_tm_test(capture, step_size, start_fnum, 
-    gray_flag, roi_flag, show_flag):
+def run_tm_test(capture, test_type_str, step_size, start_fnum,
+    show_flag, wait_flag, gray_flag, roi_flag):
 
     # Define the range of frames to be scanned during the test.
     test_range = 3000
     end_fnum = start_fnum + test_range
 
-    # Start a timer and complete the TM test.
+    # Start a timer and initialize the TM object.
     start_time = time.time()
     tm = template_matcher.TemplateMatcher(capture, step_size,
         frame_range=[start_fnum, end_fnum], gray_flag=gray_flag,
-        roi_flag=roi_flag, show_flag=show_flag)
-    tm.tm_test()
+        roi_flag=roi_flag, show_flag=show_flag, wait_flag=wait_flag)
+
+    # Run the TM test according to the input test_type_str and end the timer.
+    if test_type_str == "tms":
+        tm.tm_test()
+    elif test_type_str == "tmc":
+        tm.calibrate_test()
     finish_time = time.time() - start_time
     average_fps = (test_range // step_size) / finish_time
 
@@ -172,10 +179,14 @@ if __name__ == '__main__':
         nargs='?', help='The video file directory to be used.')
 
     # Add CLI arguments to run various smashscan tests.
-    parser.add_argument('-tm_test', '--tm_test_flag', action='store_true',
-        help='A flag used to run the template matching test.')
+    parser.add_argument('-tms', '--tms_test_flag', action='store_true',
+        help='A flag used to run the template matching standard test.')
+    parser.add_argument('-tmc', '--tmc_test_flag', action='store_true',
+        help='A flag used to run the template matching calibrate test.')
     parser.add_argument('-show', '--show_flag', action='store_true',
         help='A flag used to display the results as each test runs.')
+    parser.add_argument('-wait', '--wait_flag', action='store_true',
+        help='A flag used to wait for key inputs during displaying frames.')
     parser.add_argument('-start', '--start_fnum', type=int, default=0,
         nargs='?', help='The initial frame to begin testing.')
 
@@ -184,9 +195,12 @@ if __name__ == '__main__':
     video_location = "{:s}/{:s}".format(args.video_dir, args.video_name)
 
     # Run the smashscan test indicated by the input flags (tfnet by default).
-    if args.tm_test_flag:
-        run_all_tm_tests(video_location, args.step_size, 
-            args.start_fnum, args.show_flag)
+    if args.tms_test_flag:
+        run_all_tm_tests("tms", video_location, args.step_size,
+            args.start_fnum, args.show_flag, args.wait_flag)
+    elif args.tmc_test_flag:
+        run_all_tm_tests("tmc", video_location, args.step_size,
+            args.start_fnum, args.show_flag, args.wait_flag)
     else:
         show_tfnet_results(video_location, args.step_size,
             args.save_flag, not args.hide_flag)

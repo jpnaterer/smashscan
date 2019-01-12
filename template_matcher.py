@@ -5,53 +5,72 @@ import numpy as np
 import util
 
 # An object that takes a capture and a number of input parameters and performs
-# a template matching test with the main method tm_test.
+# a template matching test with the main method tm_test. Parameters include
+# a step_size for the speed of iteration, frame_range for the range of frame
+# numbers to be surveyed, gray_flag for a grayscale or BGR analysis, roi_flag
+# for only a sub-image (region of interest) to be searched, show_flag which
+# displays results with cv2.imshow(), and wait_flag which waits between frames.
 class TemplateMatcher:
 
     def __init__(self, capture, step_size=60, frame_range=None,
-        gray_flag=True, roi_flag=True, show_flag=False):
+        gray_flag=True, roi_flag=True, show_flag=False, wait_flag=False):
 
         self.capture = capture
         self.step_size = step_size
-        self.frame_range = frame_range
         self.gray_flag = gray_flag
         self.roi_flag = roi_flag
         self.show_flag = show_flag
         self.template_match_radius = 2
 
-        # Read the percentage sign image file and extract a binary mask based
-        # off of the alpha channel. Also, resize to the 360p base height.
-        self.template_img, self.template_mask = get_image_and_mask(
-            "resources/pct.png", 360/480, gray_flag)
-        self.template_shape = self.template_img.shape[:2]
-
-
-    # Execute the cv2.matchTemplate algorithm over a video. Parameters include
-    # a step_size for the speed of iteration, frame_range for the range of
-    # frame numbers to be surveyed, gray_flag for a grayscale or BGR analysis,
-    # roi_flag for only a sub-image (region of interest) to be searched, and
-    # show_flag which displays results with the cv2.imshow() window.
-    def tm_test(self):
+        # Set the wait_length for cv2.waitKey. 0 represents waiting, 1 = 1ms.
+        if wait_flag:
+            self.wait_length = 0
+        else:
+            self.wait_length = 1
 
         # Set the start and stop frame number to search for TM results. If no
         # frame_range parameter was input, iterate through the entire video.
-        start_fnum = 0
-        stop_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        if self.frame_range:
-            start_fnum, stop_fnum = self.frame_range
+        self.start_fnum = 0
+        self.stop_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        if frame_range:
+            self.start_fnum, self.stop_fnum = frame_range
 
-        # Iterate through video and use cv2 to perform template matching.
-        for current_fnum in range(start_fnum, stop_fnum, self.step_size):
+        # Read the percentage sign image file and extract a binary mask based
+        # off of the alpha channel. Also, resize to the 360p base height.
+        self.orig_template_img, self.orig_template_mask = get_image_and_mask(
+            "resources/pct.png", gray_flag)
+        self.template_img, self.template_mask = resize_image_and_mask(
+            self.orig_template_img, self.orig_template_mask, 360/480)
+        self.template_shape = self.template_img.shape[:2]
+
+
+    # Execute the cv2.matchTemplate algorithm over a video range.
+    def tm_test(self):
+
+        # Iterate through video range and use cv2 to perform template matching.
+        for current_fnum in range(self.start_fnum,
+            self.stop_fnum, self.step_size):
+
+            # Obtain the frame and get the template confidences and locations.
             frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
-
-            # Get the confidence and location of cv2.matchTemplate().
             confidence_list, tl_list = self.get_tm_results(frame, 4)
 
-            # Display the frame with an accuracy label if show_flag is enabled.
+            # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
                 self.show_tm_results(frame, confidence_list, tl_list)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
+
+
+    # Run the calibrate template test algorithm over a video range.
+    def calibrate_test(self):
+        # Iterate through video range and use cv2 to perform template matching.
+        for current_fnum in range(self.start_fnum,
+            self.stop_fnum, self.step_size):
+
+            # Obtain the frame and get the calibrated template size. TODO
+            frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
+            self.get_calibrate_results(frame)
 
 
     # Return the confidence and location of the result of cv2.matchTemplate().
@@ -97,6 +116,32 @@ class TemplateMatcher:
         return(max_val_list, top_left_list)
 
 
+    # TODO: Comment
+    def get_calibrate_results(self, frame):
+        new_max_val, max_w, max_h = 0, 0, 0
+        h, w = self.orig_template_img.shape[:2]
+
+        # Assuming a Wide 360p format (640×360), only search the bottom quarter
+        # of the input frame for the template if the roi_flag is enabled.
+        if self.roi_flag:
+            frame = frame[270:, :]
+
+        for new_w in range(w - 8, w + 8):
+            new_h = int(new_w * h / w)
+            template_img = cv2.resize(self.orig_template_img, (new_w, new_h))
+            template_mask = cv2.resize(self.orig_template_mask, (new_w, new_h))
+            match_mat = cv2.matchTemplate(frame, template_img,
+                cv2.TM_CCORR_NORMED, mask=template_mask)
+            _, max_val, _, _ = cv2.minMaxLoc(match_mat)
+
+            if max_val > new_max_val:
+                new_max_val = max_val
+                max_h = new_h
+                max_w = new_w
+
+        print(max_h, max_w)
+
+
     # Given a list of confidences and points, call the util.show_frame function
     # with the appropriate inputs. Operations include generating bottom-right
     # points and joining the multiple confidence values into a single string.
@@ -119,7 +164,7 @@ class TemplateMatcher:
 #### Functions not inherent by TemplateMatcher Object ##########################
 
 # Given an image location, extract the image and alpha (transparent) mask.
-def get_image_and_mask(img_location, img_scale, gray_flag):
+def get_image_and_mask(img_location, gray_flag):
 
     # Load image from file with alpha channel (UNCHANGED flag). If an alpha
     # channel does not exist, just return the base image.
@@ -140,14 +185,16 @@ def get_image_and_mask(img_location, img_scale, gray_flag):
         img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
         mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
 
-    # Resize the image and mask based on input value.
-    if img_scale:
-        h, w = img.shape[:2]
-        h, w = int(h * img_scale), int(w * img_scale)
-        img = cv2.resize(img, (w, h))
-        mask = cv2.resize(mask, (w, h))
-
     return img, mask
+
+
+# Resize an image and mask based on an input scale ratio.
+def resize_image_and_mask(img, mask, img_scale):
+    h, w = img.shape[:2]
+    h, w = int(h * img_scale), int(w * img_scale)
+    resized_img = cv2.resize(img, (w, h))
+    resized_mask = cv2.resize(mask, (w, h))
+    return resized_img, resized_mask
 
 
 # Take a matrix and coordinate, and set the region around that coordinate
