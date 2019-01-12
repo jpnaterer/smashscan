@@ -68,7 +68,7 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
         # label+confidence string if a result was found. Exit if 'q' is pressed.
         if show_flag:
             if result:
-                util.show_frame(frame, bbox=[tl, br],
+                util.show_frame(frame, bbox_list=[(tl, br)],
                     text='{}: {:.0f}%'.format(label, confidence * 100))
             else:
                 cv2.imshow('frame', frame)
@@ -138,9 +138,10 @@ def run_tm_test(capture, step_size, start_fnum,
 
     # Start a timer and complete the TM test.
     start_time = time.time()
-    template_matcher.tm_test(capture, step_size,
+    tm = template_matcher.TemplateMatcher(capture, step_size,
         frame_range=[start_fnum, end_fnum], gray_flag=gray_flag,
         roi_flag=roi_flag, show_flag=show_flag)
+    tm.tm_test()
     finish_time = time.time() - start_time
     average_fps = (test_range // step_size) / finish_time
 
