@@ -5,11 +5,11 @@ import numpy as np
 import util
 
 # An object that takes a capture and a number of input parameters and performs
-# a template matching test with the main method tm_test. Parameters include
-# a step_size for the speed of iteration, frame_range for the range of frame
-# numbers to be surveyed, gray_flag for a grayscale or BGR analysis, roi_flag
-# for only a sub-image (region of interest) to be searched, show_flag which
-# displays results with cv2.imshow(), and wait_flag which waits between frames.
+# a number of template matching tests. Parameters include a step_size for the
+# speed of iteration, frame_range for the range of frame numbers to be
+# surveyed, gray_flag for a grayscale or BGR analysis, roi_flag for only a
+# sub-image (region of interest) to be searched, show_flag which displays
+# results with cv2.imshow(), and wait_flag which waits between frames.
 class TemplateMatcher:
 
     def __init__(self, capture, step_size=60, frame_range=None,
@@ -44,8 +44,8 @@ class TemplateMatcher:
         self.template_shape = self.template_img.shape[:2]
 
 
-    # Execute the cv2.matchTemplate algorithm over a video range.
-    def tm_test(self):
+    # Run the standard template matching test over a video range.
+    def standard_test(self):
 
         # Iterate through video range and use cv2 to perform template matching.
         for current_fnum in range(self.start_fnum,
@@ -53,7 +53,7 @@ class TemplateMatcher:
 
             # Obtain the frame and get the template confidences and locations.
             frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
-            confidence_list, tl_list = self.get_tm_results(frame, 4)
+            confidence_list, tl_list = self.get_tms_results(frame, 4)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
@@ -62,20 +62,26 @@ class TemplateMatcher:
                     break
 
 
-    # Run the calibrate template test algorithm over a video range.
+    # Run the calibrate template test over a video range.
     def calibrate_test(self):
+
         # Iterate through video range and use cv2 to perform template matching.
         for current_fnum in range(self.start_fnum,
             self.stop_fnum, self.step_size):
 
-            # Obtain the frame and get the calibrated template size. TODO
+            # Obtain the frame and get the calibrated template size.
             frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
-            self.get_calibrate_results(frame)
+            bbox, label = self.get_tmc_results(frame)
+
+            # Display frame with a confidence label if show_flag is enabled.
+            if self.show_flag:
+                util.show_frame(frame, bbox_list=[bbox], text=label)
+                if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
+                    break
 
 
-    # Return the confidence and location of the result of cv2.matchTemplate().
-    # Parameters include num_results to specify the number of matches to find.
-    def get_tm_results(self, frame, num_results):
+    # Return the confidence list and point list required by the TMS test.
+    def get_tms_results(self, frame, num_results):
 
         # Assuming a Wide 360p format (640×360), only search the bottom quarter
         # of the input frame for the template if the roi_flag is enabled.
@@ -116,9 +122,8 @@ class TemplateMatcher:
         return(max_val_list, top_left_list)
 
 
-    # TODO: Comment
-    def get_calibrate_results(self, frame):
-        new_max_val, max_w, max_h = 0, 0, 0
+    # Return the bounding box and label required by the TMC test.
+    def get_tmc_results(self, frame):
         h, w = self.orig_template_img.shape[:2]
 
         # Assuming a Wide 360p format (640×360), only search the bottom quarter
@@ -126,20 +131,49 @@ class TemplateMatcher:
         if self.roi_flag:
             frame = frame[270:, :]
 
-        for new_w in range(w - 8, w + 8):
+        # Get the percent sign accuracy according to the default (480, 584) to
+        # (360, 640) rescale change from (24, 32) to (18, 24).
+        match_mat = cv2.matchTemplate(frame, self.template_img,
+            cv2.TM_CCORR_NORMED, mask=self.template_mask)
+        _, orig_max_val, _, _ = cv2.minMaxLoc(match_mat)
+
+        # Get the percent sign accuracy according to the optimal rescale.
+        opt_max_val, opt_top_left, max_w, max_h = \
+            self.get_calibrate_results(frame, w, h)
+
+        # Compensate for point location if a region of interest was used.
+        if self.roi_flag:
+            opt_top_left = (opt_top_left[0], opt_top_left[1] + 270)
+
+        # Format the bounding box and label according to the TMC test.
+        bbox = (opt_top_left, (opt_top_left[0]+max_w, opt_top_left[1]+max_h))
+        label = "({}, {}) {:0.3f} -> {:0.3f}".format(
+            max_w, max_h, orig_max_val, opt_max_val)
+        return bbox, label
+
+
+    # Resize the original template a number of times to find the dimensions
+    # of the template that yield the highest (optimal) confidence.
+    def get_calibrate_results(self, frame, w, h):
+        opt_max_val, opt_top_left, opt_w, opt_h = 0, 0, 0, 0
+
+        # Iterate over a num. of widths, and rescale the img/mask accordingly.
+        for new_w in range(w - 10, w + 1):
             new_h = int(new_w * h / w)
             template_img = cv2.resize(self.orig_template_img, (new_w, new_h))
             template_mask = cv2.resize(self.orig_template_mask, (new_w, new_h))
+
+            # Calculate the confidence and location of the current rescale.
             match_mat = cv2.matchTemplate(frame, template_img,
                 cv2.TM_CCORR_NORMED, mask=template_mask)
-            _, max_val, _, _ = cv2.minMaxLoc(match_mat)
+            _, max_val, _, top_left = cv2.minMaxLoc(match_mat)
 
-            if max_val > new_max_val:
-                new_max_val = max_val
-                max_h = new_h
-                max_w = new_w
+            # Store the results if the confidence is larger than the previous.
+            if max_val > opt_max_val:
+                opt_max_val, opt_top_left = max_val, top_left
+                opt_w, opt_h = new_w, new_h
 
-        print(max_h, max_w)
+        return opt_max_val, opt_top_left, opt_w, opt_h
 
 
     # Given a list of confidences and points, call the util.show_frame function
