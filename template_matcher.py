@@ -1,4 +1,5 @@
 import cv2
+import statistics
 import numpy as np
 
 # SmashScan libraries
@@ -12,11 +13,12 @@ import util
 # results with cv2.imshow(), and wait_flag which waits between frames.
 class TemplateMatcher:
 
-    def __init__(self, capture, step_size=60, frame_range=None,
+    def __init__(self, capture, step_size=60, frame_range=None, num_frames=60,
         gray_flag=True, roi_flag=True, show_flag=False, wait_flag=False):
 
         self.capture = capture
         self.step_size = step_size
+        self.num_frames = num_frames
         self.gray_flag = gray_flag
         self.roi_flag = roi_flag
         self.show_flag = show_flag
@@ -29,10 +31,10 @@ class TemplateMatcher:
             self.wait_length = 1
 
         # Set the start and stop frame number to search for TM results. If no
-        # frame_range parameter was input, iterate through the entire video.
+        # stop_fnum parameter was input, iterate through the entire video.
         self.start_fnum = 0
         self.stop_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        if frame_range:
+        if frame_range[1]:
             self.start_fnum, self.stop_fnum = frame_range
 
         # Read the percentage sign image file and extract a binary mask based
@@ -53,11 +55,13 @@ class TemplateMatcher:
 
             # Obtain the frame and get the template confidences and locations.
             frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
-            confidence_list, tl_list = self.get_tms_results(frame, 4)
+            confidence_list, bbox_list = self.get_tms_results(frame, 4)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
-                self.show_tm_results(frame, confidence_list, tl_list)
+                label_list = ["{:0.3f}".format(i) for i in confidence_list]
+                label = " ".join(label_list)
+                util.show_frame(frame, bbox_list, text=label)
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
 
@@ -71,13 +75,55 @@ class TemplateMatcher:
 
             # Obtain the frame and get the calibrated template size.
             frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
-            bbox, label = self.get_tmc_results(frame)
+            bbox, opt_conf, max_w, max_h = self.get_tmc_results(frame)
+
+            # Get the percent sign accuracy according to the default (480, 584)
+            # to (360, 640) rescale change from (24, 32) to (18, 24).
+            orig_conf_list, _ = self.get_tms_results(frame, 1)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
+                label = "({}, {}) {:0.3f} -> {:0.3f}".format(
+                    max_w, max_h, orig_conf_list[0], opt_conf)
                 util.show_frame(frame, bbox_list=[bbox], text=label)
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
+
+
+    # Run the initialize template test over a number of random frames.
+    def initialize_test(self):
+
+        # Generate some random frames to search for the proper template size.
+        random_fnum_list = np.random.randint(low=self.start_fnum,
+            high=self.stop_fnum, size=self.num_frames)
+
+        # Iterate over the random frames.
+        max_w_list = list()
+        for random_fnum in random_fnum_list:
+
+            # Obtain the frame and get the calibrated template size.
+            frame = util.get_frame(self.capture, random_fnum, self.gray_flag)
+            bbox, opt_conf, max_w, max_h = self.get_tmc_results(frame)
+
+            # Get the percent sign accuracy according to the default (480, 584)
+            # to (360, 640) rescale change from (24, 32) to (18, 24).
+            orig_conf_list, _ = self.get_tms_results(frame, 1)
+
+            if opt_conf > 0.8:
+                max_w_list.append(max_w)
+                print(max_w, max_h, opt_conf)
+
+            # Display frame with a confidence label if show_flag is enabled.
+            if self.show_flag:
+                label = "({}, {}) {:0.3f} -> {:0.3f}".format(
+                    max_w, max_h, orig_conf_list[0], opt_conf)
+                util.show_frame(frame, bbox_list=[bbox], text=label)
+                if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
+                    break
+
+        opt_w = statistics.mode(max_w_list)
+        h, w = self.template_shape[:2]
+        print("({}, {}) ~ Mode".format(opt_w, h*opt_w//w))
 
 
     # Return the confidence list and point list required by the TMS test.
@@ -100,7 +146,15 @@ class TemplateMatcher:
             for i in range(num_results):
                 tl_list[i] = (tl_list[i][0], tl_list[i][1] + 270)
 
-        return conf_list, tl_list
+        # Create a list of bounding boxes (top-left & bottom-right points),
+        # using the input template_shape given as (width, height).
+        bbox_list = list()
+        for tl in tl_list:
+            br = (tl[0] + self.template_shape[1],
+                  tl[1] + self.template_shape[0])
+            bbox_list.append((tl, br))
+
+        return conf_list, bbox_list
 
 
     # Take the result of cv2.matchTemplate, and find the most likely locations
@@ -131,12 +185,6 @@ class TemplateMatcher:
         if self.roi_flag:
             frame = frame[270:, :]
 
-        # Get the percent sign accuracy according to the default (480, 584) to
-        # (360, 640) rescale change from (24, 32) to (18, 24).
-        match_mat = cv2.matchTemplate(frame, self.template_img,
-            cv2.TM_CCORR_NORMED, mask=self.template_mask)
-        _, orig_max_val, _, _ = cv2.minMaxLoc(match_mat)
-
         # Get the percent sign accuracy according to the optimal rescale.
         opt_max_val, opt_top_left, max_w, max_h = \
             self.get_calibrate_results(frame, w, h)
@@ -145,11 +193,9 @@ class TemplateMatcher:
         if self.roi_flag:
             opt_top_left = (opt_top_left[0], opt_top_left[1] + 270)
 
-        # Format the bounding box and label according to the TMC test.
+        # Format the bounding box and return.
         bbox = (opt_top_left, (opt_top_left[0]+max_w, opt_top_left[1]+max_h))
-        label = "({}, {}) {:0.3f} -> {:0.3f}".format(
-            max_w, max_h, orig_max_val, opt_max_val)
-        return bbox, label
+        return bbox, opt_max_val, max_w, max_h
 
 
     # Resize the original template a number of times to find the dimensions
@@ -174,25 +220,6 @@ class TemplateMatcher:
                 opt_w, opt_h = new_w, new_h
 
         return opt_max_val, opt_top_left, opt_w, opt_h
-
-
-    # Given a list of confidences and points, call the util.show_frame function
-    # with the appropriate inputs. Operations include generating bottom-right
-    # points and joining the multiple confidence values into a single string.
-    def show_tm_results(self, frame, confidence_list, top_left_list):
-
-        # Create a list of bounding boxes (top-left & bottom-right points),
-        # using the input template_shape given as (width, height).
-        bbox_list = list()
-        for tl in top_left_list:
-            br = (tl[0] + self.template_shape[1],
-                  tl[1] + self.template_shape[0])
-            bbox_list.append((tl, br))
-
-        # Create a list of 3 decimal labels, then join by spaces and display.
-        label_list = ["{:0.3f}".format(i) for i in confidence_list]
-        label = " ".join(label_list)
-        util.show_frame(frame, bbox_list, text=label)
 
 
 #### Functions not inherent by TemplateMatcher Object ##########################
