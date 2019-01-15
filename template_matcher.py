@@ -22,7 +22,11 @@ class TemplateMatcher:
         self.gray_flag = gray_flag
         self.roi_flag = roi_flag
         self.show_flag = show_flag
+
+        # Predetermined parameters that have been tested to work best.
         self.template_match_radius = 2
+        self.conf_threshold = 0.8
+        self.roi_y_tolerance = 3
 
         # Set the wait_length for cv2.waitKey. 0 represents waiting, 1 = 1ms.
         if wait_flag:
@@ -43,8 +47,39 @@ class TemplateMatcher:
             "resources/pct.png", gray_flag)
         self.template_img, self.template_mask = resize_image_and_mask(
             self.orig_template_img, self.orig_template_mask, 360/480)
-        self.template_shape = self.template_img.shape[:2]
 
+
+    #### TEMPLATE MATCHER RUNTIME METHODS ######################################
+
+    def initialize_template_scale(self):
+         # Generate random frames to search for a proper template size.
+        random_fnum_list = np.random.randint(low=self.start_fnum,
+            high=self.stop_fnum, size=self.num_frames)
+        max_w_list, bbox_list = list(), list()
+
+        for random_fnum in random_fnum_list:
+
+            # Get the calibrated accuracy for the random frame.
+            frame = util.get_frame(self.capture, random_fnum, self.gray_flag)
+            bbox, opt_conf, max_w, _ = self.get_tmc_results(frame)
+
+            # Store template info if confidence above an input threshold.
+            if opt_conf > self.conf_threshold:
+                max_w_list.append(max_w)
+                bbox_list.append(bbox)
+
+        # Calculate the Median of the optimal widths and rescale accordingly.
+        opt_w = int(np.median(max_w_list))
+        h, w = self.orig_template_img.shape[:2]
+        opt_h = h*opt_w//w
+        self.template_img = cv2.resize(self.orig_template_img, (opt_w, opt_h))
+        self.template_mask = cv2.resize(self.orig_template_mask, (opt_w, opt_h))
+
+        # Calculate the region of interest to search for the template.
+        print(self.get_template_roi(bbox_list))
+
+
+    #### TEMPLATE MATCHER TESTS ################################################
 
     # Run the standard template matching test over a video range.
     def standard_test(self):
@@ -93,25 +128,24 @@ class TemplateMatcher:
     # Run the initialize template test over a number of random frames.
     def initialize_test(self):
 
-        # Generate some random frames to search for the proper template size.
+        # Generate random frames to search for a proper template size.
         random_fnum_list = np.random.randint(low=self.start_fnum,
             high=self.stop_fnum, size=self.num_frames)
+        max_w_list, bbox_list = list(), list()
 
-        # Iterate over the random frames.
-        max_w_list = list()
         for random_fnum in random_fnum_list:
 
-            # Obtain the frame and get the calibrated template size.
+            # Get the calibrated accuracy, and get the original accuracy
+            # according to the default (24, 32) to (18, 24) rescale.
             frame = util.get_frame(self.capture, random_fnum, self.gray_flag)
             bbox, opt_conf, max_w, max_h = self.get_tmc_results(frame)
-
-            # Get the percent sign accuracy according to the default (480, 584)
-            # to (360, 640) rescale change from (24, 32) to (18, 24).
             orig_conf_list, _ = self.get_tms_results(frame, 1)
 
-            if opt_conf > 0.8:
+            # Store the template width if above a confidence threshold.
+            if opt_conf > self.conf_threshold:
                 max_w_list.append(max_w)
-                print(max_w, max_h, opt_conf)
+                bbox_list.append(bbox)
+                print((max_w, max_h), bbox, random_fnum, opt_conf)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
@@ -121,10 +155,13 @@ class TemplateMatcher:
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
 
-        opt_w = statistics.mode(max_w_list)
-        h, w = self.template_shape[:2]
-        print("({}, {}) ~ Mode".format(opt_w, h*opt_w//w))
+        opt_w = int(np.median(max_w_list))
+        h, w = self.template_img.shape[:2]
+        print("Optimal Template Size: ({}, {})".format(opt_w, h*opt_w//w))
+        print("Optimal ROI bbox: {}".format(self.get_template_roi(bbox_list)))
 
+
+    #### TEMPLATE MATCHER HELPER METHODS #######################################
 
     # Return the confidence list and point list required by the TMS test.
     def get_tms_results(self, frame, num_results):
@@ -149,9 +186,9 @@ class TemplateMatcher:
         # Create a list of bounding boxes (top-left & bottom-right points),
         # using the input template_shape given as (width, height).
         bbox_list = list()
+        h, w = self.template_img.shape[:2]
         for tl in tl_list:
-            br = (tl[0] + self.template_shape[1],
-                  tl[1] + self.template_shape[0])
+            br = (tl[0] + w, tl[1] + h)
             bbox_list.append((tl, br))
 
         return conf_list, bbox_list
@@ -220,6 +257,19 @@ class TemplateMatcher:
                 opt_w, opt_h = new_w, new_h
 
         return opt_max_val, opt_top_left, opt_w, opt_h
+
+
+    # Given a list of expected bounding boxes, return a region of interest
+    # bounding box, that covers a horizontal line over the entire 360p frame.
+    # The bottom y-coordinate must not surpass the boundaries of the frame.
+    def get_template_roi(self, bbox_list):
+        tol, y_min_list, y_max_list = self.roi_y_tolerance, list(), list()
+        for bbox in bbox_list:
+            y_min_list.append(bbox[0][1])
+            y_max_list.append(bbox[1][1])
+        y_min = max(0, min(y_min_list)-tol)
+        y_max = min(639, max(y_max_list)+tol)
+        return ((0, y_min), (359, y_max))
 
 
 #### Functions not inherent by TemplateMatcher Object ##########################

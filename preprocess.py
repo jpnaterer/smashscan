@@ -1,5 +1,4 @@
 import numpy as np
-import cv2
 import matplotlib.pyplot as plt
 
 # Return the tfnet prediction with the highest confidence.
@@ -188,61 +187,3 @@ def show_hist_plots(dirty_hist, clean_hist, y_labels):
     ax2.set_ylim([-0.5, len(y_labels) - 0.5])
 
     plt.show()
-
-
-# Uses tfnet to obtain a more accurate location of match start and end.
-def get_accurate_match_ranges(init_match_ranges, orig_step_size,
-    capture, tfnet, accurate_threshold=0.5):
-
-    # The final match range list to be returned.
-    final_match_ranges = list()
-
-    # The list of step sizes to be used for efficient video traversal.
-    ss_index = 0
-    step_size_list = [60, 29, 14, 6, 2, 1]
-    step_size = step_size_list[ss_index]
-
-    # Iterate through the final match ranges.
-    for match_range in init_match_ranges:
-
-        # Find accurate location of start of match.
-        start_prediction = match_range[0]*orig_step_size + 1
-        ss_index = 0
-        while True:
-            capture.set(cv2.CAP_PROP_POS_FRAMES, start_prediction - step_size)
-            _, frame = capture.read()
-            result = get_tfnet_result(tfnet, frame)
-
-            if result:
-                if result['confidence'] > accurate_threshold:
-                    start_prediction -= step_size
-                    continue
-
-            if step_size == 1:
-                break
-            else:
-                ss_index += 1
-                step_size = step_size_list[ss_index]
-
-        # Find accurate location of end of match.
-        end_prediction = match_range[1]*orig_step_size + 1
-        ss_index = 0
-        while True:
-            capture.set(cv2.CAP_PROP_POS_FRAMES, end_prediction + step_size)
-            _, frame = capture.read()
-            result = get_tfnet_result(tfnet, frame)
-
-            if result:
-                if result['confidence'] > accurate_threshold:
-                    end_prediction += step_size
-                    continue
-
-            if step_size == 1:
-                break
-            else:
-                ss_index += 1
-                step_size = step_size_list[ss_index]
-
-        final_match_ranges.append([start_prediction, end_prediction])
-
-    return final_match_ranges
