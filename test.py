@@ -11,8 +11,10 @@ import template_matcher
 def run_all_tm_tests(test_type_str, video_location,
     step_size, start_fnum, stop_fnum, num_frames, show_flag, wait_flag):
 
-    # Create an OpenCV capture object. https://docs.opencv.org/3.4.2/
+    # Create a capture object and set the stop frame number if none was given.
     capture = cv2.VideoCapture(video_location)
+    if stop_fnum == 0:
+        stop_fnum = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # Run the TM test over various parameter configurations,
     run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
@@ -32,13 +34,25 @@ def run_all_tm_tests(test_type_str, video_location,
 def run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
     num_frames, show_flag, wait_flag, gray_flag, roi_flag):
 
-    # Start a timer and initialize the TM object.
-    start_time = time.time()
+    # Initialize the TM object.
     tm = template_matcher.TemplateMatcher(capture, step_size,
         [start_fnum, stop_fnum], num_frames, gray_flag,
         roi_flag, show_flag, wait_flag)
 
+    # Display the flags used for the current TM test.
+    print("==== Template Matching Test ====")
+    print("\tgray_flag={}".format(gray_flag))
+    print("\troi_flag={}".format(roi_flag))
+    print("\tshow_flag={}".format(show_flag))
+
+    # Run TM initialization if the test requires it.
+    if test_type_str == "tmt":
+        start_time = time.time()
+        tm.initialize_template_scale()
+        print("\tTotal Init Time: {:.2f}s".format(time.time() - start_time))
+
     # Run the TM test according to the input test_type_str and end the timer.
+    start_time = time.time()
     if test_type_str == "tms":
         tm.standard_test()
         num_frames_tested = (stop_fnum - start_fnum) // step_size
@@ -48,15 +62,14 @@ def run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
     elif test_type_str == "tmi":
         tm.initialize_test()
         num_frames_tested = num_frames
+    elif test_type_str == "tmt":
+        tm.timeline_test()
+        num_frames_tested = (stop_fnum - start_fnum) // step_size
     finish_time = time.time() - start_time
     average_fps = num_frames_tested / finish_time
 
-    # Display the flags used and the time taken to complete the test.
-    print("==== Template Matching Test ====")
-    print("\tgray_flag={}".format(gray_flag))
-    print("\troi_flag={}".format(roi_flag))
-    print("\tshow_flag={}".format(show_flag))
-    print("\tTotal time: {:.2f}s".format(finish_time))
+    # Display the time taken to complete the test.
+    print("\tTotal Time: {:.2f}s".format(finish_time))
     print("\tAverage FPS: {:.2f}".format(average_fps))
 
 
@@ -84,6 +97,8 @@ if __name__ == '__main__':
         help='A flag used to run the template matching calibrate test.')
     parser.add_argument('-tmi', '--tmi_test_flag', action='store_true',
         help='A flag used to run the template matching initialize test.')
+    parser.add_argument('-tmt', '--tmt_test_flag', action='store_true',
+        help='A flag used to run the template matching timeline test.')
 
     # Add CLI arguments for parameters of the various smashscan tests.
     parser.add_argument('-show', '--show_flag', action='store_true',
@@ -112,6 +127,10 @@ if __name__ == '__main__':
             args.show_flag, args.wait_flag)
     elif args.tmi_test_flag:
         run_all_tm_tests("tmi", video_location, args.step_size,
+            args.start_fnum, args.stop_fnum, args.num_frames,
+            args.show_flag, args.wait_flag)
+    elif args.tmt_test_flag:
+        run_all_tm_tests("tmt", video_location, args.step_size,
             args.start_fnum, args.stop_fnum, args.num_frames,
             args.show_flag, args.wait_flag)
     else:

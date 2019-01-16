@@ -1,5 +1,4 @@
 import cv2
-import statistics
 import numpy as np
 
 # SmashScan libraries
@@ -18,6 +17,7 @@ class TemplateMatcher:
 
         self.capture = capture
         self.step_size = step_size
+        self.start_fnum, self.stop_fnum = frame_range
         self.num_frames = num_frames
         self.gray_flag = gray_flag
         self.roi_flag = roi_flag
@@ -28,18 +28,14 @@ class TemplateMatcher:
         self.conf_threshold = 0.8
         self.roi_y_tolerance = 3
 
+        # Paramaters that are redefined later on during initialization.
+        self.template_roi = None
+
         # Set the wait_length for cv2.waitKey. 0 represents waiting, 1 = 1ms.
         if wait_flag:
             self.wait_length = 0
         else:
             self.wait_length = 1
-
-        # Set the start and stop frame number to search for TM results. If no
-        # stop_fnum parameter was input, iterate through the entire video.
-        self.start_fnum = 0
-        self.stop_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        if frame_range[1]:
-            self.start_fnum, self.stop_fnum = frame_range
 
         # Read the percentage sign image file and extract a binary mask based
         # off of the alpha channel. Also, resize to the 360p base height.
@@ -52,7 +48,7 @@ class TemplateMatcher:
     #### TEMPLATE MATCHER RUNTIME METHODS ######################################
 
     def initialize_template_scale(self):
-         # Generate random frames to search for a proper template size.
+        # Generate random frames to search for a proper template size.
         random_fnum_list = np.random.randint(low=self.start_fnum,
             high=self.stop_fnum, size=self.num_frames)
         max_w_list, bbox_list = list(), list()
@@ -76,7 +72,7 @@ class TemplateMatcher:
         self.template_mask = cv2.resize(self.orig_template_mask, (opt_w, opt_h))
 
         # Calculate the region of interest to search for the template.
-        print(self.get_template_roi(bbox_list))
+        self.template_roi = self.get_template_roi(bbox_list)
 
 
     #### TEMPLATE MATCHER TESTS ################################################
@@ -90,7 +86,7 @@ class TemplateMatcher:
 
             # Obtain the frame and get the template confidences and locations.
             frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
-            confidence_list, bbox_list = self.get_tms_results(frame, 4)
+            confidence_list, bbox_list = self.get_tm_results(frame, 4)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
@@ -114,7 +110,7 @@ class TemplateMatcher:
 
             # Get the percent sign accuracy according to the default (480, 584)
             # to (360, 640) rescale change from (24, 32) to (18, 24).
-            orig_conf_list, _ = self.get_tms_results(frame, 1)
+            orig_conf_list, _ = self.get_tm_results(frame, 1)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
@@ -139,7 +135,7 @@ class TemplateMatcher:
             # according to the default (24, 32) to (18, 24) rescale.
             frame = util.get_frame(self.capture, random_fnum, self.gray_flag)
             bbox, opt_conf, max_w, max_h = self.get_tmc_results(frame)
-            orig_conf_list, _ = self.get_tms_results(frame, 1)
+            orig_conf_list, _ = self.get_tm_results(frame, 1)
 
             # Store the template width if above a confidence threshold.
             if opt_conf > self.conf_threshold:
@@ -161,25 +157,60 @@ class TemplateMatcher:
         print("Optimal ROI bbox: {}".format(self.get_template_roi(bbox_list)))
 
 
+    # Run the timeline template test over a video range.
+    def timeline_test(self):
+
+        # Iterate through video range and use cv2 to perform template matching.
+        percent_timeline = list()
+        for current_fnum in range(self.start_fnum,
+            self.stop_fnum, self.step_size):
+
+            # Obtain the frame and get the template confidences and locations.
+            frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
+            confidence_list, bbox_list = self.get_tm_results(frame, 1)
+
+            # Append to the percent timeline according to if percent was found.
+            if confidence_list[0] > self.conf_threshold:
+                percent_timeline.append(1)
+            else:
+                percent_timeline.append(0)
+
+            # Display frame with a confidence label if show_flag is enabled.
+            if self.show_flag:
+                label = "{:0.3f}".format(confidence_list[0])
+                util.show_frame(frame, bbox_list, text=label)
+                if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
+                    break
+
+        # Display the percent timeline.
+        print(percent_timeline)
+
+
     #### TEMPLATE MATCHER HELPER METHODS #######################################
 
-    # Return the confidence list and point list required by the TMS test.
-    def get_tms_results(self, frame, num_results):
+    # Given a frame, return a confidence list and bounding box list.
+    def get_tm_results(self, frame, num_results):
 
-        # Assuming a Wide 360p format (640×360), only search the bottom quarter
-        # of the input frame for the template if the roi_flag is enabled.
-        if self.roi_flag:
+        # If the template ROI has been initialized, take that subregion of the
+        # frame. Otherwise, take the bottom quarter of the frame if the
+        # roi_flag is enabled, assuming a Wide 360p format (640x360).
+        if self.template_roi:
+            frame = frame[self.template_roi[0][1]:self.template_roi[1][1], :]
+        elif self.roi_flag:
             frame = frame[270:, :]
 
-        # Match the template using a normalized cross-correlation method.
+        # Match the template using a normalized cross-correlation method and
+        # retrieve the confidence and top-left points from the result.
         match_mat = cv2.matchTemplate(frame, self.template_img,
             cv2.TM_CCORR_NORMED, mask=self.template_mask)
-
-        # Retrieve the confidence and top-left points from the match matrix.
         conf_list, tl_list = self.get_match_results(match_mat, num_results)
 
         # Compensate for point location if a region of interest was used.
-        if self.roi_flag:
+        if self.template_roi:
+            for i in range(num_results):
+                tl_list[i] = (tl_list[i][0], 
+                    tl_list[i][1] + self.template_roi[0][1])
+        elif self.roi_flag:
             for i in range(num_results):
                 tl_list[i] = (tl_list[i][0], tl_list[i][1] + 270)
 
