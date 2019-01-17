@@ -1,10 +1,11 @@
 import time
+import numpy as np
 import cv2
 from darkflow.net.build import TFNet
 
 # SmashScan libraries
-import preprocess
 import util
+import timeline
 
 TFNET_OPTIONS = {
     'config': 'cfg',
@@ -25,17 +26,10 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
     capture = cv2.VideoCapture(video_location)
     total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    # A list of the label history to be used in the cleaning algorithm. It
-    # stores the labels as integers, while no result found is (-1).
-    dirty_hist = list()
-
-    # A list that stores the corresponding bounding boxes of the timeline.
+    # Create a timeline of the label history where the labels are stored as
+    # integers while no result is (-1). Also create a bounding box list.
+    dirty_timeline = list()
     bbox_hist = list()
-
-    # Display a cv2 window if the hide flag is disabled.
-    if show_flag:
-        cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('frame', 1280, 720)
 
     # Initialize DarkFlow TFNet object with weights from cfg folder.
     start_time = time.time()
@@ -47,7 +41,7 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
         _, frame = capture.read()
 
         # Get the tfnet result with the largest confidence and extract info.
-        result = preprocess.get_tfnet_result(tfnet, frame)
+        result = get_tfnet_result(tfnet, frame)
         if result:
             tl = (result['topleft']['x'], result['topleft']['y'])
             br = (result['bottomright']['x'], result['bottomright']['y'])
@@ -56,10 +50,10 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
 
         # Store label if result found, or (-1) if no result was found.
         if result:
-            dirty_hist.append(LABELS_LIST.index(result['label']))
+            dirty_timeline.append(LABELS_LIST.index(result['label']))
             bbox_hist.append((tl, br))
         else:
-            dirty_hist.append(-1)
+            dirty_timeline.append(-1)
             bbox_hist.append(-1)
 
         # Display the frame if show_flag is enabled. Add a bounding box, and
@@ -82,17 +76,17 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
     # End the TfNet session and display time taken to complete.
     finish_time = time.time() - start_time
     print("Initial video sweep tfnet results in %.2fs" % finish_time)
-    print("\tAverage FPS: %.2f" % (len(dirty_hist) / finish_time))
+    print("\tAverage FPS: %.2f" % (len(dirty_timeline) / finish_time))
 
     # Fill holes in the history timeline list, and filter out timeline
     # sections that are smaller than a particular size.
-    clean_hist = preprocess.hist_fill_filter(dirty_hist)
-    clean_hist = preprocess.hist_size_filter(clean_hist, step_size)
-    preprocess.show_hist_plots(dirty_hist, clean_hist, LABELS_LIST)
+    clean_timeline = timeline.fill_filter(dirty_timeline)
+    clean_timeline = timeline.size_filter(clean_timeline, step_size)
+    timeline.show_plots(dirty_timeline, clean_timeline, LABELS_LIST)
 
-    # Get a list of the matches and avg bboxes according to clean_hist.
-    match_ranges = preprocess.get_match_ranges(clean_hist)
-    match_bboxes = preprocess.get_match_bboxes(match_ranges, bbox_hist)
+    # Get a list of the matches and avg bboxes according to clean_timeline.
+    match_ranges = timeline.get_match_ranges(clean_timeline)
+    match_bboxes = get_match_bboxes(match_ranges, bbox_hist)
 
     # Show the beginning and end of each match according to the filters.
     display_frames = list()
@@ -105,3 +99,45 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
     tfnet.sess.close()
     capture.release()
     cv2.destroyAllWindows()
+
+
+# Return the tfnet prediction with the highest confidence.
+def get_tfnet_result(tfnet, frame):
+    results = tfnet.return_predict(frame)
+    result = dict()
+
+    max_confidence = 0
+    for result_iter in results:
+        if result_iter["confidence"] > max_confidence:
+            result = result_iter
+            max_confidence = result_iter["confidence"]
+    return result
+
+
+# Given the match ranges and bounding box history, return a list of the average
+# bounding box (top left and bottom right coordinate pair) of each match.
+def get_match_bboxes(match_ranges, bbox_hist):
+    match_bboxes = list()
+
+    # Iterate through match ranges and initialize match_size to be the counter
+    # for the number of elements summed, and tl_sum/br_sum as the actual sums.
+    for match_range in match_ranges:
+        match_size = 0
+        tl_sum, br_sum = (0, 0), (0, 0)
+
+        # Use the match_range to iterate through the bbox_hist to sum the
+        # (tl, br) pair. Numpy is used to easily sum the tuples.
+        for i in range(match_range[0], match_range[1]):
+            if bbox_hist[i] != -1:
+                match_size += 1
+                tl_sum = np.add(tl_sum, bbox_hist[i][0])
+                br_sum = np.add(br_sum, bbox_hist[i][1])
+
+        # Round the (tl, br) avg to the nearest int and append to the list.
+        tl = (int(round(tl_sum[0]/match_size)),
+              int(round(tl_sum[1]/match_size)))
+        br = (int(round(br_sum[0]/match_size)),
+              int(round(br_sum[1]/match_size)))
+        match_bboxes.append((tl, br))
+
+    return match_bboxes

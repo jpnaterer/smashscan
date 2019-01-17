@@ -161,7 +161,7 @@ class TemplateMatcher:
     def timeline_test(self):
 
         # Iterate through video range and use cv2 to perform template matching.
-        percent_timeline = list()
+        pct_timeline = list()
         for current_fnum in range(self.start_fnum,
             self.stop_fnum, self.step_size):
 
@@ -171,9 +171,9 @@ class TemplateMatcher:
 
             # Append to the percent timeline according to if percent was found.
             if confidence_list[0] > self.conf_threshold:
-                percent_timeline.append(1)
+                pct_timeline.append(0)
             else:
-                percent_timeline.append(0)
+                pct_timeline.append(-1)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
@@ -183,7 +183,7 @@ class TemplateMatcher:
                     break
 
         # Display the percent timeline.
-        print(percent_timeline)
+        util.show_timeline_plots(pct_timeline, pct_timeline, ["pct found"])
 
 
     #### TEMPLATE MATCHER HELPER METHODS #######################################

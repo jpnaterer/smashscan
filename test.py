@@ -83,8 +83,6 @@ if __name__ == '__main__':
     # Add a number of keyword arguments for various testing parameters.
     parser.add_argument('-save', '--save_flag', action='store_true',
         help='A flag used to determine if frames are saved.')
-    parser.add_argument('-hide', '--hide_flag', action='store_true',
-        help='A flag used to hide the plot, so testing runs faster.')
     parser.add_argument('-step', '--step_size', type=int, default=60,
         nargs='?', help='The step size used when testing.')
     parser.add_argument('-dir', '--video_dir', type=str, default='videos',
@@ -135,4 +133,4 @@ if __name__ == '__main__':
             args.show_flag, args.wait_flag)
     else:
         stage_detector.show_tfnet_results(video_location, args.step_size,
-            args.save_flag, not args.hide_flag)
+            args.save_flag, args.show_flag)
