@@ -1,8 +1,10 @@
+import time
 import cv2
 import numpy as np
 
 # SmashScan libraries
 import util
+import timeline
 
 # An object that takes a capture and a number of input parameters and performs
 # a number of template matching tests. Parameters include a step_size for the
@@ -81,6 +83,7 @@ class TemplateMatcher:
     def standard_test(self):
 
         # Iterate through video range and use cv2 to perform template matching.
+        start_time = time.time()
         for current_fnum in range(self.start_fnum,
             self.stop_fnum, self.step_size):
 
@@ -96,11 +99,16 @@ class TemplateMatcher:
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
 
+        # Display the time taken to complete the test.
+        frame_count = (self.stop_fnum - self.start_fnum) // self.step_size
+        util.display_fps(start_time, frame_count)
+
 
     # Run the calibrate template test over a video range.
     def calibrate_test(self):
 
         # Iterate through video range and use cv2 to perform template matching.
+        start_time = time.time()
         for current_fnum in range(self.start_fnum,
             self.stop_fnum, self.step_size):
 
@@ -119,12 +127,17 @@ class TemplateMatcher:
                 util.show_frame(frame, bbox_list=[bbox], text=label)
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
+        
+        # Display the time taken to complete the test.
+        frame_count = (self.stop_fnum - self.start_fnum) // self.step_size
+        util.display_fps(start_time, frame_count)
 
 
     # Run the initialize template test over a number of random frames.
     def initialize_test(self):
 
         # Generate random frames to search for a proper template size.
+        start_time = time.time()
         random_fnum_list = np.random.randint(low=self.start_fnum,
             high=self.stop_fnum, size=self.num_frames)
         max_w_list, bbox_list = list(), list()
@@ -151,16 +164,19 @@ class TemplateMatcher:
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
 
+        # Display the optimal bbox and time taken to complete the test.
         opt_w = int(np.median(max_w_list))
         h, w = self.template_img.shape[:2]
         print("Optimal Template Size: ({}, {})".format(opt_w, h*opt_w//w))
         print("Optimal ROI bbox: {}".format(self.get_template_roi(bbox_list)))
+        util.display_fps(start_time, self.num_frames)
 
 
     # Run the timeline template test over a video range.
     def timeline_test(self):
 
         # Iterate through video range and use cv2 to perform template matching.
+        start_time = time.time()
         pct_timeline = list()
         for current_fnum in range(self.start_fnum,
             self.stop_fnum, self.step_size):
@@ -182,8 +198,15 @@ class TemplateMatcher:
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
 
-        # Display the percent timeline.
-        util.show_timeline_plots(pct_timeline, pct_timeline, ["pct found"])
+        # Display the time taken to complete the test.
+        frame_count = (self.stop_fnum - self.start_fnum) // self.step_size
+        util.display_fps(start_time, frame_count)
+
+        # Fill holes in the history timeline list, and filter out timeline
+        # sections that are smaller than a particular size.
+        clean_timeline = timeline.fill_filter(pct_timeline)
+        clean_timeline = timeline.size_filter(clean_timeline, self.step_size)
+        timeline.show_plots(pct_timeline, clean_timeline, ["pct found"])
 
 
     #### TEMPLATE MATCHER HELPER METHODS #######################################
@@ -208,7 +231,7 @@ class TemplateMatcher:
         # Compensate for point location if a region of interest was used.
         if self.template_roi:
             for i in range(num_results):
-                tl_list[i] = (tl_list[i][0], 
+                tl_list[i] = (tl_list[i][0],
                     tl_list[i][1] + self.template_roi[0][1])
         elif self.roi_flag:
             for i in range(num_results):

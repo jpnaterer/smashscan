@@ -55,22 +55,12 @@ def run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
     start_time = time.time()
     if test_type_str == "tms":
         tm.standard_test()
-        num_frames_tested = (stop_fnum - start_fnum) // step_size
     elif test_type_str == "tmc":
         tm.calibrate_test()
-        num_frames_tested = (stop_fnum - start_fnum) // step_size
     elif test_type_str == "tmi":
         tm.initialize_test()
-        num_frames_tested = num_frames
     elif test_type_str == "tmt":
         tm.timeline_test()
-        num_frames_tested = (stop_fnum - start_fnum) // step_size
-    finish_time = time.time() - start_time
-    average_fps = num_frames_tested / finish_time
-
-    # Display the time taken to complete the test.
-    print("\tTotal Time: {:.2f}s".format(finish_time))
-    print("\tAverage FPS: {:.2f}".format(average_fps))
 
 
 if __name__ == '__main__':

@@ -1,3 +1,4 @@
+import time
 import cv2
 
 # Given a frame number and additional parameters, return a frame.
@@ -58,3 +59,10 @@ def show_frames(capture, frame_num_list, bbox_list=None, wait_flag=True):
             cv2.waitKey(0)
         else:
             cv2.waitKey(1)
+
+
+# Display the total time taken and average FPS of a test procedure.
+def display_fps(start_time, frame_count):
+    stop_time = time.time() - start_time
+    print("\tTotal Time: {:.2f}s".format(stop_time))
+    print("\tAverage FPS: {:.2f}".format(frame_count / stop_time))
