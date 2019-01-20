@@ -116,5 +116,7 @@ if __name__ == '__main__':
             args.start_fnum, args.stop_fnum, args.num_frames,
             args.show_flag, args.wait_flag)
     else:
-        stage_detector.show_tfnet_results(video_location, args.step_size,
+        capture = cv2.VideoCapture(video_location)
+        sd = stage_detector.StageDetector(capture, args.step_size,
             args.save_flag, args.show_flag)
+        sd.standard_test()
