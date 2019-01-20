@@ -28,8 +28,7 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
 
     # Create a timeline of the label history where the labels are stored as
     # integers while no result is (-1). Also create a bounding box list.
-    dirty_timeline = list()
-    bbox_hist = list()
+    dirty_timeline, bbox_hist = list(), list()
 
     # Initialize DarkFlow TFNet object with weights from cfg folder.
     start_time = time.time()
@@ -85,12 +84,11 @@ def show_tfnet_results(video_location, step_size, save_flag, show_flag):
     timeline.show_plots(dirty_timeline, clean_timeline, LABELS_LIST)
 
     # Get a list of the matches and avg bboxes according to clean_timeline.
-    match_ranges = timeline.get_match_ranges(clean_timeline)
+    match_ranges = timeline.get_ranges(clean_timeline)
     match_bboxes = get_match_bboxes(match_ranges, bbox_hist)
 
     # Show the beginning and end of each match according to the filters.
-    display_frames = list()
-    display_bboxes = list()
+    display_frames, display_bboxes = list(), list()
     for i, match_range in enumerate(match_ranges):
         display_frames += [match_range[0]*step_size, match_range[1]*step_size]
         display_bboxes += [match_bboxes[i], match_bboxes[i]]

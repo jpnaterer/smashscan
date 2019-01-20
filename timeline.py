@@ -78,7 +78,7 @@ def size_filter(dirty_timeline, step_size):
     match_length_thresh = int(30 * (30 / step_size))
 
     # Filter out matches that are less than match_length_thresh.
-    match_ranges = get_match_ranges(dirty_timeline)
+    match_ranges = get_ranges(dirty_timeline)
     match_ranges = list(filter(
         lambda b: b[1] - b[0] > match_length_thresh, match_ranges))
 
@@ -94,7 +94,7 @@ def size_filter(dirty_timeline, step_size):
 
 # Given a label timeline, return a list of pairs corresponding to
 # the ranges (starting and ending frames) a match (!= -1) is present.
-def get_match_ranges(any_timeline):
+def get_ranges(any_timeline):
     match_ranges = list()
 
     # Indicates the current stage while iterating through the timeline.

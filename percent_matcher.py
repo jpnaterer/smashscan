@@ -15,20 +15,23 @@ import timeline
 class TemplateMatcher:
 
     def __init__(self, capture, step_size=60, frame_range=None, num_frames=60,
-        gray_flag=True, roi_flag=True, show_flag=False, wait_flag=False):
+        gray_flag=True, show_flag=False, wait_flag=False):
 
         self.capture = capture
         self.step_size = step_size
         self.start_fnum, self.stop_fnum = frame_range
         self.num_frames = num_frames
         self.gray_flag = gray_flag
-        self.roi_flag = roi_flag
         self.show_flag = show_flag
 
         # Predetermined parameters that have been tested to work best.
+        self.roi_flag = True
         self.template_match_radius = 2
         self.conf_threshold = 0.8
+        self.calib_w_range = (24, 30)
         self.roi_y_tolerance = 3
+        self.prec_step_size = 2
+        self.prec_step_threshold = 4
 
         # Paramaters that are redefined later on during initialization.
         self.template_roi = None
@@ -53,21 +56,21 @@ class TemplateMatcher:
         # Generate random frames to search for a proper template size.
         random_fnum_list = np.random.randint(low=self.start_fnum,
             high=self.stop_fnum, size=self.num_frames)
-        max_w_list, bbox_list = list(), list()
+        opt_w_list, bbox_list = list(), list()
 
         for random_fnum in random_fnum_list:
 
             # Get the calibrated accuracy for the random frame.
             frame = util.get_frame(self.capture, random_fnum, self.gray_flag)
-            bbox, opt_conf, max_w, _ = self.get_tmc_results(frame)
+            bbox, opt_conf, opt_w, _ = self.get_calibrate_results(frame)
 
             # Store template info if confidence above an input threshold.
             if opt_conf > self.conf_threshold:
-                max_w_list.append(max_w)
+                opt_w_list.append(opt_w)
                 bbox_list.append(bbox)
 
         # Calculate the Median of the optimal widths and rescale accordingly.
-        opt_w = int(np.median(max_w_list))
+        opt_w = int(np.median(opt_w_list))
         h, w = self.orig_template_img.shape[:2]
         opt_h = h*opt_w//w
         self.template_img = cv2.resize(self.orig_template_img, (opt_w, opt_h))
@@ -84,11 +87,10 @@ class TemplateMatcher:
 
         # Iterate through video range and use cv2 to perform template matching.
         start_time = time.time()
-        for current_fnum in range(self.start_fnum,
-            self.stop_fnum, self.step_size):
+        for fnum in range(self.start_fnum, self.stop_fnum, self.step_size):
 
             # Obtain the frame and get the template confidences and locations.
-            frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
+            frame = util.get_frame(self.capture, fnum, self.gray_flag)
             confidence_list, bbox_list = self.get_tm_results(frame, 4)
 
             # Display frame with a confidence label if show_flag is enabled.
@@ -109,12 +111,11 @@ class TemplateMatcher:
 
         # Iterate through video range and use cv2 to perform template matching.
         start_time = time.time()
-        for current_fnum in range(self.start_fnum,
-            self.stop_fnum, self.step_size):
+        for fnum in range(self.start_fnum, self.stop_fnum, self.step_size):
 
             # Obtain the frame and get the calibrated template size.
-            frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
-            bbox, opt_conf, max_w, max_h = self.get_tmc_results(frame)
+            frame = util.get_frame(self.capture, fnum, self.gray_flag)
+            bbox, opt_conf, opt_w, opt_h = self.get_calibrate_results(frame)
 
             # Get the percent sign accuracy according to the default (480, 584)
             # to (360, 640) rescale change from (24, 32) to (18, 24).
@@ -123,11 +124,11 @@ class TemplateMatcher:
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
                 label = "({}, {}) {:0.3f} -> {:0.3f}".format(
-                    max_w, max_h, orig_conf_list[0], opt_conf)
+                    opt_w, opt_h, orig_conf_list[0], opt_conf)
                 util.show_frame(frame, bbox_list=[bbox], text=label)
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
-        
+
         # Display the time taken to complete the test.
         frame_count = (self.stop_fnum - self.start_fnum) // self.step_size
         util.display_fps(start_time, frame_count)
@@ -140,49 +141,49 @@ class TemplateMatcher:
         start_time = time.time()
         random_fnum_list = np.random.randint(low=self.start_fnum,
             high=self.stop_fnum, size=self.num_frames)
-        max_w_list, bbox_list = list(), list()
+        opt_w_list, bbox_list = list(), list()
 
         for random_fnum in random_fnum_list:
 
             # Get the calibrated accuracy, and get the original accuracy
             # according to the default (24, 32) to (18, 24) rescale.
             frame = util.get_frame(self.capture, random_fnum, self.gray_flag)
-            bbox, opt_conf, max_w, max_h = self.get_tmc_results(frame)
+            bbox, opt_conf, opt_w, opt_h = self.get_calibrate_results(frame)
             orig_conf_list, _ = self.get_tm_results(frame, 1)
 
             # Store the template width if above a confidence threshold.
             if opt_conf > self.conf_threshold:
-                max_w_list.append(max_w)
+                opt_w_list.append(opt_w)
                 bbox_list.append(bbox)
-                print((max_w, max_h), bbox, random_fnum, opt_conf)
+                print((opt_w, opt_h), bbox, random_fnum, opt_conf)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
                 label = "({}, {}) {:0.3f} -> {:0.3f}".format(
-                    max_w, max_h, orig_conf_list[0], opt_conf)
+                    opt_w, opt_h, orig_conf_list[0], opt_conf)
                 util.show_frame(frame, bbox_list=[bbox], text=label)
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
 
         # Display the optimal bbox and time taken to complete the test.
-        opt_w = int(np.median(max_w_list))
+        opt_w = int(np.median(opt_w_list))
         h, w = self.template_img.shape[:2]
+        self.template_roi = self.get_template_roi(bbox_list)
         print("Optimal Template Size: ({}, {})".format(opt_w, h*opt_w//w))
-        print("Optimal ROI bbox: {}".format(self.get_template_roi(bbox_list)))
+        print("Optimal ROI bbox: {}".format(self.template_roi))
         util.display_fps(start_time, self.num_frames)
+        util.show_frame(frame, bbox_list=[self.template_roi], wait_flag=True)
 
 
     # Run the timeline template test over a video range.
     def timeline_test(self):
 
         # Iterate through video range and use cv2 to perform template matching.
-        start_time = time.time()
-        pct_timeline = list()
-        for current_fnum in range(self.start_fnum,
-            self.stop_fnum, self.step_size):
+        start_time, pct_timeline = time.time(), list()
+        for fnum in range(self.start_fnum, self.stop_fnum, self.step_size):
 
             # Obtain the frame and get the template confidences and locations.
-            frame = util.get_frame(self.capture, current_fnum, self.gray_flag)
+            frame = util.get_frame(self.capture, fnum, self.gray_flag)
             confidence_list, bbox_list = self.get_tm_results(frame, 1)
 
             # Append to the percent timeline according to if percent was found.
@@ -207,6 +208,15 @@ class TemplateMatcher:
         clean_timeline = timeline.fill_filter(pct_timeline)
         clean_timeline = timeline.size_filter(clean_timeline, self.step_size)
         timeline.show_plots(pct_timeline, clean_timeline, ["pct found"])
+
+        # Display the frames associated with the calculated match ranges.
+        timeline_ranges = timeline.get_ranges(clean_timeline)
+        match_ranges = np.multiply(timeline_ranges, self.step_size)
+        util.show_frames(self.capture, match_ranges.flatten())
+
+        # Display the frames associated with the precise match ranges.
+        precise_match_ranges = self.get_precise_match_ranges(match_ranges)
+        util.show_frames(self.capture, precise_match_ranges.flatten())
 
 
     #### TEMPLATE MATCHER HELPER METHODS #######################################
@@ -267,35 +277,20 @@ class TemplateMatcher:
         return(max_val_list, top_left_list)
 
 
-    # Return the bounding box and label required by the TMC test.
-    def get_tmc_results(self, frame):
+    # Resize the original template a number of times to find the dimensions
+    # of the template that yield the highest (optimal) confidence. Return the
+    # bounding box, confidence value, and optimal template dimensions.
+    def get_calibrate_results(self, frame):
         h, w = self.orig_template_img.shape[:2]
+        opt_max_val, opt_top_left, opt_w, opt_h = 0, 0, 0, 0
 
         # Assuming a Wide 360p format (640×360), only search the bottom quarter
         # of the input frame for the template if the roi_flag is enabled.
         if self.roi_flag:
             frame = frame[270:, :]
 
-        # Get the percent sign accuracy according to the optimal rescale.
-        opt_max_val, opt_top_left, max_w, max_h = \
-            self.get_calibrate_results(frame, w, h)
-
-        # Compensate for point location if a region of interest was used.
-        if self.roi_flag:
-            opt_top_left = (opt_top_left[0], opt_top_left[1] + 270)
-
-        # Format the bounding box and return.
-        bbox = (opt_top_left, (opt_top_left[0]+max_w, opt_top_left[1]+max_h))
-        return bbox, opt_max_val, max_w, max_h
-
-
-    # Resize the original template a number of times to find the dimensions
-    # of the template that yield the highest (optimal) confidence.
-    def get_calibrate_results(self, frame, w, h):
-        opt_max_val, opt_top_left, opt_w, opt_h = 0, 0, 0, 0
-
         # Iterate over a num. of widths, and rescale the img/mask accordingly.
-        for new_w in range(w - 10, w + 1):
+        for new_w in range(self.calib_w_range[0], self.calib_w_range[1]):
             new_h = int(new_w * h / w)
             template_img = cv2.resize(self.orig_template_img, (new_w, new_h))
             template_mask = cv2.resize(self.orig_template_mask, (new_w, new_h))
@@ -310,7 +305,13 @@ class TemplateMatcher:
                 opt_max_val, opt_top_left = max_val, top_left
                 opt_w, opt_h = new_w, new_h
 
-        return opt_max_val, opt_top_left, opt_w, opt_h
+        # Compensate for point location if a region of interest was used.
+        if self.roi_flag:
+            opt_top_left = (opt_top_left[0], opt_top_left[1] + 270)
+
+        # Format the bounding box and return.
+        bbox = (opt_top_left, (opt_top_left[0]+opt_w, opt_top_left[1]+opt_h))
+        return bbox, opt_max_val, opt_w, opt_h
 
 
     # Given a list of expected bounding boxes, return a region of interest
@@ -322,8 +323,47 @@ class TemplateMatcher:
             y_min_list.append(bbox[0][1])
             y_max_list.append(bbox[1][1])
         y_min = max(0, min(y_min_list)-tol)
-        y_max = min(639, max(y_max_list)+tol)
-        return ((0, y_min), (359, y_max))
+        y_max = min(359, max(y_max_list)+tol)
+        return ((0, y_min), (639, y_max))
+
+
+    # Given an initial guess of match ranges, make a more precise estimate.
+    def get_precise_match_ranges(self, init_match_ranges):
+
+        # Iterate through the match ranges, going backwards if at the start
+        # of a match, and going forward if at the end of a match.
+        prec_match_ranges_flat = list()
+        init_match_ranges_flat = init_match_ranges.flatten()
+        for i, fnum_prediction in enumerate(init_match_ranges_flat):
+            fnum = fnum_prediction
+            if i % 2 == 0:
+                current_step_size = -self.prec_step_size
+            else:
+                current_step_size = self.prec_step_size
+
+            while True:
+                # Obtain the frame and get the pct confidences and locations.
+                frame = util.get_frame(self.capture, fnum, self.gray_flag)
+                confidence_list, _ = self.get_tm_results(frame, 1)
+
+                # Increment the precise counter if no pct was found.
+                if confidence_list[0] > self.conf_threshold:
+                    prec_counter = 0
+                else:
+                    prec_counter += 1
+
+                # Exit if there has been no percent found over multiple frames.
+                if prec_counter == self.prec_step_threshold:
+                    prec_match_ranges_flat.append(
+                        fnum - current_step_size*(prec_counter+1))
+                    break
+                elif fnum == 0 or fnum == self.stop_fnum:
+                    prec_match_ranges_flat.append(fnum)
+                    break
+                fnum = fnum + current_step_size
+
+        # Return the match ranges as a list of pairs.
+        return np.reshape(prec_match_ranges_flat, (-1, 2))
 
 
 #### Functions not inherent by TemplateMatcher Object ##########################
@@ -341,7 +381,7 @@ def get_image_and_mask(img_location, gray_flag):
     # threshold the alpha channel to create a binary mask.
     channels = cv2.split(img)
     mask = np.array(channels[3])
-    _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+    _, mask = cv2.threshold(mask, 250, 255, cv2.THRESH_BINARY)
 
     # Convert image and mask to grayscale or BGR based on input flag.
     if gray_flag:

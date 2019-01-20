@@ -11,7 +11,7 @@ def get_frame(capture, frame_num, gray_flag=False):
 
 
 # Given a frame and additional parameters, display a frame.
-def show_frame(frame, bbox_list=None, text=None):
+def show_frame(frame, bbox_list=None, text=None, wait_flag=False):
 
     # A list of colors to indicate the order of bounding boxes drawn.
     color_list = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]]
@@ -39,8 +39,10 @@ def show_frame(frame, bbox_list=None, text=None):
         frame = cv2.putText(frame, text, text_bl,
             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
 
-    # Display the frame and return.
+    # Display the frame and wait for input if the wait flag is enabled.
     cv2.imshow('frame', frame)
+    if wait_flag:
+        cv2.waitKey(0)
 
 
 # Given a list of frame numbers, display each frame. An optional flag exists

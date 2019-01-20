@@ -4,7 +4,7 @@ import cv2
 
 # SmashScan libraries
 import stage_detector
-import template_matcher
+import percent_matcher
 
 
 # Run the TM test over a wide range of input parameters.
@@ -18,13 +18,9 @@ def run_all_tm_tests(test_type_str, video_location,
 
     # Run the TM test over various parameter configurations,
     run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
-        num_frames, show_flag, wait_flag, gray_flag=False, roi_flag=False)
+        num_frames, show_flag, wait_flag, gray_flag=False)
     run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
-        num_frames, show_flag, wait_flag, gray_flag=True, roi_flag=False)
-    run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
-        num_frames, show_flag, wait_flag, gray_flag=False, roi_flag=True)
-    run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
-        num_frames, show_flag, wait_flag, gray_flag=True, roi_flag=True)
+        num_frames, show_flag, wait_flag, gray_flag=True)
 
     # Release the OpenCV capture object.
     capture.release()
@@ -32,17 +28,15 @@ def run_all_tm_tests(test_type_str, video_location,
 
 # Run a single TM test over a given group of input parameters.
 def run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
-    num_frames, show_flag, wait_flag, gray_flag, roi_flag):
+    num_frames, show_flag, wait_flag, gray_flag):
 
     # Initialize the TM object.
-    tm = template_matcher.TemplateMatcher(capture, step_size,
-        [start_fnum, stop_fnum], num_frames, gray_flag,
-        roi_flag, show_flag, wait_flag)
+    tm = percent_matcher.TemplateMatcher(capture, step_size,
+        [start_fnum, stop_fnum], num_frames, gray_flag, show_flag, wait_flag)
 
     # Display the flags used for the current TM test.
     print("==== Template Matching Test ====")
     print("\tgray_flag={}".format(gray_flag))
-    print("\troi_flag={}".format(roi_flag))
     print("\tshow_flag={}".format(show_flag))
 
     # Run TM initialization if the test requires it.
