@@ -19,9 +19,14 @@ TFNET_OPTIONS = {
 LABELS_LIST = ["battlefield", "dreamland", "finaldest",
                "fountain", "pokemon", "yoshis"]
 
+
+# An object that takes a capture and a number of input parameters and performs
+# a number of object detection operations. Parameters include a step_size for
+# the speed of iteration, save_flag for saving results, and show_flag to
+# display results.
 class StageDetector:
 
-    def __init__(self, capture, step_size, save_flag, show_flag):
+    def __init__(self, capture, step_size=60, save_flag=False, show_flag=False):
         self.capture = capture
         self.step_size = step_size
         self.save_flag = save_flag
@@ -29,6 +34,7 @@ class StageDetector:
 
         # Predetermined parameters that have been tested to work best.
         self.end_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.num_match_frames = 5
 
         # Initialize DarkFlow TFNet object with weights from cfg folder.
         self.tfnet = TFNet(TFNET_OPTIONS)
@@ -39,6 +45,8 @@ class StageDetector:
         self.capture.release()
         cv2.destroyAllWindows()
 
+
+    #### STAGE DETECTOR TESTS ##################################################
 
     # Run the standard stage detector test over the entire video.
     def standard_test(self):
@@ -66,10 +74,11 @@ class StageDetector:
 
             # Display the frame if show_flag is enabled. Exit if q pressed.
             if self.show_flag:
-                text = None
                 if confidence:
                     text = '{}: {:.0f}%'.format(label, confidence * 100)
-                util.show_frame(frame, bbox_list=[bbox], text=text)
+                    util.show_frame(frame, bbox_list=[bbox], text=text)
+                else:
+                    util.show_frame(frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
@@ -78,9 +87,7 @@ class StageDetector:
                 cv2.imwrite('output/frame%07d.png' % current_frame, frame)
 
         # End the TfNet session and display time taken to complete.
-        finish_time = time.time() - start_time
-        print("Initial video sweep tfnet results in %.2fs" % finish_time)
-        print("\tAverage FPS: %.2f" % (len(dirty_timeline) / finish_time))
+        util.display_fps(start_time, len(dirty_timeline), "Initial Sweep")
 
         # Fill holes in the history timeline list, and filter out timeline
         # sections that are smaller than a particular size.
@@ -100,6 +107,36 @@ class StageDetector:
             display_bboxes += [match_bboxes[i], match_bboxes[i]]
         util.show_frames(self.capture, display_frames, display_bboxes)
 
+    # Run the match test. Given match ranges, determine the stage for each match.
+    def match_test(self, match_ranges):
+
+        start_time = time.time()
+        match_labels = list()
+
+        # For each match range, generated random frame numbers to search.
+        for match_range in match_ranges:
+            random_fnum_list = np.random.randint(low=match_range[0],
+                high=match_range[1], size=self.num_match_frames)
+            label_list = list()
+
+            # Find the labels for the random frame numbers selected.
+            for random_fnum in random_fnum_list:
+                self.capture.set(cv2.CAP_PROP_POS_FRAMES, random_fnum)
+                _, frame = self.capture.read()
+                _, label, _ = self.get_tfnet_result(frame)
+                if label:
+                    label_list.append(label)
+
+            # Find the label that occured the most during the tested frames.
+            match_label = max(set(label_list), key=label_list.count)
+            match_labels.append(match_label)
+
+        # Display the Results of the test.
+        num_frames_detected = len(match_ranges)*self.num_match_frames
+        util.display_fps(start_time, num_frames_detected, "Stage Detection")
+        print("\tMatch Labels: {:}".format(match_labels))
+
+    #### STAGE DETECTOR HELPER METHODS #########################################
 
     # Return the tfnet prediction with the highest confidence.
     def get_tfnet_result(self, frame):

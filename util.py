@@ -64,7 +64,7 @@ def show_frames(capture, frame_num_list, bbox_list=None, wait_flag=True):
 
 
 # Display the total time taken and average FPS of a test procedure.
-def display_fps(start_time, frame_count):
+def display_fps(start_time, frame_count, title=""):
     stop_time = time.time() - start_time
-    print("\tTotal Time: {:.2f}s".format(stop_time))
+    print("\tTotal {:} Time: {:.2f}s".format(title, stop_time))
     print("\tAverage FPS: {:.2f}".format(frame_count / stop_time))

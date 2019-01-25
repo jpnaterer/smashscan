@@ -2,24 +2,23 @@ import time
 import cv2
 import numpy as np
 
-# SmashScan libraries
+# SmashScan Libraries
 import util
 import timeline
 
 # An object that takes a capture and a number of input parameters and performs
-# a number of template matching tests. Parameters include a step_size for the
-# speed of iteration, frame_range for the range of frame numbers to be
+# a number of template matching operations. Parameters include a step_size for
+# the speed of iteration, frame_range for the range of frame numbers to be
 # surveyed, gray_flag for a grayscale or BGR analysis, roi_flag for only a
 # sub-image (region of interest) to be searched, show_flag which displays
 # results with cv2.imshow(), and wait_flag which waits between frames.
-class TemplateMatcher:
+class PercentMatcher:
 
     def __init__(self, capture, step_size=60, frame_range=None, num_frames=60,
         gray_flag=True, show_flag=False, wait_flag=False):
 
         self.capture = capture
         self.step_size = step_size
-        self.start_fnum, self.stop_fnum = frame_range
         self.num_frames = num_frames
         self.gray_flag = gray_flag
         self.show_flag = show_flag
@@ -36,6 +35,13 @@ class TemplateMatcher:
         # Paramaters that are redefined later on during initialization.
         self.template_roi = None
 
+        # Set the start/stop frame to the full video if frame_range undefined.
+        if frame_range:
+            self.start_fnum, self.stop_fnum = frame_range
+        else:
+            self.start_fnum = 0
+            self.stop_fnum = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
         # Set the wait_length for cv2.waitKey. 0 represents waiting, 1 = 1ms.
         if wait_flag:
             self.wait_length = 0
@@ -44,46 +50,16 @@ class TemplateMatcher:
 
         # Read the percentage sign image file and extract a binary mask based
         # off of the alpha channel. Also, resize to the 360p base height.
-        self.orig_template_img, self.orig_template_mask = get_image_and_mask(
+        self.orig_pct_img, self.orig_pct_mask = get_image_and_mask(
             "resources/pct.png", gray_flag)
-        self.template_img, self.template_mask = resize_image_and_mask(
-            self.orig_template_img, self.orig_template_mask, 360/480)
+        self.pct_img, self.pct_mask = resize_image_and_mask(
+            self.orig_pct_img, self.orig_pct_mask, 360/480)
 
 
-    #### TEMPLATE MATCHER RUNTIME METHODS ######################################
+    #### PERCENT MATCHER TESTS ################################################
 
-    def initialize_template_scale(self):
-        # Generate random frames to search for a proper template size.
-        random_fnum_list = np.random.randint(low=self.start_fnum,
-            high=self.stop_fnum, size=self.num_frames)
-        opt_w_list, bbox_list = list(), list()
-
-        for random_fnum in random_fnum_list:
-
-            # Get the calibrated accuracy for the random frame.
-            frame = util.get_frame(self.capture, random_fnum, self.gray_flag)
-            bbox, opt_conf, opt_w, _ = self.get_calibrate_results(frame)
-
-            # Store template info if confidence above an input threshold.
-            if opt_conf > self.conf_threshold:
-                opt_w_list.append(opt_w)
-                bbox_list.append(bbox)
-
-        # Calculate the Median of the optimal widths and rescale accordingly.
-        opt_w = int(np.median(opt_w_list))
-        h, w = self.orig_template_img.shape[:2]
-        opt_h = h*opt_w//w
-        self.template_img = cv2.resize(self.orig_template_img, (opt_w, opt_h))
-        self.template_mask = cv2.resize(self.orig_template_mask, (opt_w, opt_h))
-
-        # Calculate the region of interest to search for the template.
-        self.template_roi = self.get_template_roi(bbox_list)
-
-
-    #### TEMPLATE MATCHER TESTS ################################################
-
-    # Run the standard template matching test over a video range.
-    def standard_test(self):
+    # Run the sweep template matching test over a video range.
+    def sweep_test(self):
 
         # Iterate through video range and use cv2 to perform template matching.
         start_time = time.time()
@@ -167,7 +143,7 @@ class TemplateMatcher:
 
         # Display the optimal bbox and time taken to complete the test.
         opt_w = int(np.median(opt_w_list))
-        h, w = self.template_img.shape[:2]
+        h, w = self.pct_img.shape[:2]
         self.template_roi = self.get_template_roi(bbox_list)
         print("Optimal Template Size: ({}, {})".format(opt_w, h*opt_w//w))
         print("Optimal ROI bbox: {}".format(self.template_roi))
@@ -178,48 +154,42 @@ class TemplateMatcher:
     # Run the timeline template test over a video range.
     def timeline_test(self):
 
-        # Iterate through video range and use cv2 to perform template matching.
-        start_time, pct_timeline = time.time(), list()
-        for fnum in range(self.start_fnum, self.stop_fnum, self.step_size):
+        # Use a random number of frames to calibrate the percent template size.
+        start_time = time.time()
+        self.initialize_template_scale()
+        util.display_fps(start_time, self.num_frames, "Initialize")
 
-            # Obtain the frame and get the template confidences and locations.
-            frame = util.get_frame(self.capture, fnum, self.gray_flag)
-            confidence_list, bbox_list = self.get_tm_results(frame, 1)
-
-            # Append to the percent timeline according to if percent was found.
-            if confidence_list[0] > self.conf_threshold:
-                pct_timeline.append(0)
-            else:
-                pct_timeline.append(-1)
-
-            # Display frame with a confidence label if show_flag is enabled.
-            if self.show_flag:
-                label = "{:0.3f}".format(confidence_list[0])
-                util.show_frame(frame, bbox_list, text=label)
-                if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
-                    break
-
-        # Display the time taken to complete the test.
+        # Iterate through the video to identify when percent is present.
+        start_time = time.time()
+        pct_timeline = self.get_pct_timeline()
         frame_count = (self.stop_fnum - self.start_fnum) // self.step_size
-        util.display_fps(start_time, frame_count)
+        util.display_fps(start_time, frame_count, "Initial Sweep")
 
         # Fill holes in the history timeline list, and filter out timeline
         # sections that are smaller than a particular size.
         clean_timeline = timeline.fill_filter(pct_timeline)
         clean_timeline = timeline.size_filter(clean_timeline, self.step_size)
-        timeline.show_plots(pct_timeline, clean_timeline, ["pct found"])
+        if self.show_flag:
+            timeline.show_plots(pct_timeline, clean_timeline, ["pct found"])
 
         # Display the frames associated with the calculated match ranges.
         timeline_ranges = timeline.get_ranges(clean_timeline)
         match_ranges = np.multiply(timeline_ranges, self.step_size)
-        util.show_frames(self.capture, match_ranges.flatten())
+        if self.show_flag:
+            util.show_frames(self.capture, match_ranges.flatten())
 
         # Display the frames associated with the precise match ranges.
-        precise_match_ranges = self.get_precise_match_ranges(match_ranges)
-        util.show_frames(self.capture, precise_match_ranges.flatten())
+        start_time = time.time()
+        new_match_ranges = self.get_precise_match_ranges(match_ranges)
+        util.display_fps(start_time, 0, "Cleaning Sweep")
+        print("\tMatch Ranges: {:}".format(match_ranges.tolist()))
+        print("\tPrecise Match Ranges: {:}".format(new_match_ranges.tolist()))
+        if self.show_flag:
+            util.show_frames(self.capture, new_match_ranges.flatten())
+        return new_match_ranges
 
 
-    #### TEMPLATE MATCHER HELPER METHODS #######################################
+    #### PERCENT MATCHER HELPER METHODS #######################################
 
     # Given a frame, return a confidence list and bounding box list.
     def get_tm_results(self, frame, num_results):
@@ -234,8 +204,8 @@ class TemplateMatcher:
 
         # Match the template using a normalized cross-correlation method and
         # retrieve the confidence and top-left points from the result.
-        match_mat = cv2.matchTemplate(frame, self.template_img,
-            cv2.TM_CCORR_NORMED, mask=self.template_mask)
+        match_mat = cv2.matchTemplate(frame, self.pct_img,
+            cv2.TM_CCORR_NORMED, mask=self.pct_mask)
         conf_list, tl_list = self.get_match_results(match_mat, num_results)
 
         # Compensate for point location if a region of interest was used.
@@ -250,7 +220,7 @@ class TemplateMatcher:
         # Create a list of bounding boxes (top-left & bottom-right points),
         # using the input template_shape given as (width, height).
         bbox_list = list()
-        h, w = self.template_img.shape[:2]
+        h, w = self.pct_img.shape[:2]
         for tl in tl_list:
             br = (tl[0] + w, tl[1] + h)
             bbox_list.append((tl, br))
@@ -281,7 +251,7 @@ class TemplateMatcher:
     # of the template that yield the highest (optimal) confidence. Return the
     # bounding box, confidence value, and optimal template dimensions.
     def get_calibrate_results(self, frame):
-        h, w = self.orig_template_img.shape[:2]
+        h, w = self.orig_pct_img.shape[:2]
         opt_max_val, opt_top_left, opt_w, opt_h = 0, 0, 0, 0
 
         # Assuming a Wide 360p format (640×360), only search the bottom quarter
@@ -292,12 +262,12 @@ class TemplateMatcher:
         # Iterate over a num. of widths, and rescale the img/mask accordingly.
         for new_w in range(self.calib_w_range[0], self.calib_w_range[1]):
             new_h = int(new_w * h / w)
-            template_img = cv2.resize(self.orig_template_img, (new_w, new_h))
-            template_mask = cv2.resize(self.orig_template_mask, (new_w, new_h))
+            pct_img = cv2.resize(self.orig_pct_img, (new_w, new_h))
+            pct_mask = cv2.resize(self.orig_pct_mask, (new_w, new_h))
 
             # Calculate the confidence and location of the current rescale.
-            match_mat = cv2.matchTemplate(frame, template_img,
-                cv2.TM_CCORR_NORMED, mask=template_mask)
+            match_mat = cv2.matchTemplate(frame, pct_img,
+                cv2.TM_CCORR_NORMED, mask=pct_mask)
             _, max_val, _, top_left = cv2.minMaxLoc(match_mat)
 
             # Store the results if the confidence is larger than the previous.
@@ -366,7 +336,57 @@ class TemplateMatcher:
         return np.reshape(prec_match_ranges_flat, (-1, 2))
 
 
-#### Functions not inherent by TemplateMatcher Object ##########################
+    #### PERCENT MATCHER RUNTIME METHODS ######################################
+
+    # Selects a random number of frames to calibrate the percent template size.
+    def initialize_template_scale(self):
+
+        # Generate random frames to search for a proper template size.
+        random_fnum_list = np.random.randint(low=self.start_fnum,
+            high=self.stop_fnum, size=self.num_frames)
+        opt_w_list, bbox_list = list(), list()
+
+        for random_fnum in random_fnum_list:
+
+            # Get the calibrated accuracy for the random frame.
+            frame = util.get_frame(self.capture, random_fnum, self.gray_flag)
+            bbox, opt_conf, opt_w, _ = self.get_calibrate_results(frame)
+
+            # Store template info if confidence above an input threshold.
+            if opt_conf > self.conf_threshold:
+                opt_w_list.append(opt_w)
+                bbox_list.append(bbox)
+
+        # Calculate the Median of the optimal widths and rescale accordingly.
+        opt_w = int(np.median(opt_w_list))
+        h, w = self.orig_pct_img.shape[:2]
+        opt_h = h*opt_w//w
+        self.pct_img = cv2.resize(self.orig_pct_img, (opt_w, opt_h))
+        self.pct_mask = cv2.resize(self.orig_pct_mask, (opt_w, opt_h))
+
+        # Calculate the region of interest to search for the template.
+        self.template_roi = self.get_template_roi(bbox_list)
+
+
+    # Iterate through the video to identify when the percent sprite is present.
+    def get_pct_timeline(self):
+
+        pct_timeline = list()
+        for fnum in range(self.start_fnum, self.stop_fnum, self.step_size):
+            # Obtain the frame and get the template confidences and locations.
+            frame = util.get_frame(self.capture, fnum, self.gray_flag)
+            confidence_list, _ = self.get_tm_results(frame, 1)
+
+            # Append to the percent timeline according to if percent was found.
+            if confidence_list[0] > self.conf_threshold:
+                pct_timeline.append(0)
+            else:
+                pct_timeline.append(-1)
+
+        return pct_timeline
+
+
+#### Functions not inherent by PercentMatcher Object ##########################
 
 # Given an image location, extract the image and alpha (transparent) mask.
 def get_image_and_mask(img_location, gray_flag):

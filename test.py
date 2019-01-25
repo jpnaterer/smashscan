@@ -1,14 +1,14 @@
-import time
 import argparse
 import cv2
 
 # SmashScan libraries
 import stage_detector
 import percent_matcher
+import video_analysis
 
 
-# Run the TM test over a wide range of input parameters.
-def run_all_tm_tests(test_type_str, video_location,
+# Run the PM test over a wide range of input parameters.
+def run_all_pm_tests(test_type_str, video_location,
     step_size, start_fnum, stop_fnum, num_frames, show_flag, wait_flag):
 
     # Create a capture object and set the stop frame number if none was given.
@@ -16,45 +16,38 @@ def run_all_tm_tests(test_type_str, video_location,
     if stop_fnum == 0:
         stop_fnum = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    # Run the TM test over various parameter configurations,
-    run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
+    # Run the PM test over various parameter configurations,
+    run_pm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
         num_frames, show_flag, wait_flag, gray_flag=False)
-    run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
+    run_pm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
         num_frames, show_flag, wait_flag, gray_flag=True)
 
     # Release the OpenCV capture object.
     capture.release()
 
 
-# Run a single TM test over a given group of input parameters.
-def run_tm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
+# Run a single PM test over a given group of input parameters.
+def run_pm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
     num_frames, show_flag, wait_flag, gray_flag):
 
-    # Initialize the TM object.
-    tm = percent_matcher.TemplateMatcher(capture, step_size,
+    # Initialize the PM object.
+    pm = percent_matcher.PercentMatcher(capture, step_size,
         [start_fnum, stop_fnum], num_frames, gray_flag, show_flag, wait_flag)
 
-    # Display the flags used for the current TM test.
-    print("==== Template Matching Test ====")
+    # Display the flags used for the current PM test.
+    print("==== Percent Matching Test ====")
     print("\tgray_flag={}".format(gray_flag))
     print("\tshow_flag={}".format(show_flag))
 
-    # Run TM initialization if the test requires it.
-    if test_type_str == "tmt":
-        start_time = time.time()
-        tm.initialize_template_scale()
-        print("\tTotal Init Time: {:.2f}s".format(time.time() - start_time))
-
-    # Run the TM test according to the input test_type_str and end the timer.
-    start_time = time.time()
-    if test_type_str == "tms":
-        tm.standard_test()
-    elif test_type_str == "tmc":
-        tm.calibrate_test()
-    elif test_type_str == "tmi":
-        tm.initialize_test()
-    elif test_type_str == "tmt":
-        tm.timeline_test()
+    # Run the PM test according to the input test_type_str.
+    if test_type_str == "pms":
+        pm.sweep_test()
+    elif test_type_str == "pmc":
+        pm.calibrate_test()
+    elif test_type_str == "pmi":
+        pm.initialize_test()
+    elif test_type_str == "pmt":
+        pm.timeline_test()
 
 
 if __name__ == '__main__':
@@ -73,14 +66,16 @@ if __name__ == '__main__':
         nargs='?', help='The video file directory to be used.')
 
     # Add CLI arguments to run various smashscan tests.
-    parser.add_argument('-tms', '--tms_test_flag', action='store_true',
-        help='A flag used to run the template matching standard test.')
-    parser.add_argument('-tmc', '--tmc_test_flag', action='store_true',
-        help='A flag used to run the template matching calibrate test.')
-    parser.add_argument('-tmi', '--tmi_test_flag', action='store_true',
-        help='A flag used to run the template matching initialize test.')
-    parser.add_argument('-tmt', '--tmt_test_flag', action='store_true',
-        help='A flag used to run the template matching timeline test.')
+    parser.add_argument('-pms', '--pms_test_flag', action='store_true',
+        help='A flag used to run the percent matching sweep test.')
+    parser.add_argument('-pmc', '--pmc_test_flag', action='store_true',
+        help='A flag used to run the percent matching calibrate test.')
+    parser.add_argument('-pmi', '--pmi_test_flag', action='store_true',
+        help='A flag used to run the percent matching initialize test.')
+    parser.add_argument('-pmt', '--pmt_test_flag', action='store_true',
+        help='A flag used to run the percent matching timeline test.')
+    parser.add_argument('-sdt', '--sdt_test_flag', action='store_true',
+        help='A flag used to run the stage detection timeline test.')
 
     # Add CLI arguments for parameters of the various smashscan tests.
     parser.add_argument('-show', '--show_flag', action='store_true',
@@ -99,24 +94,27 @@ if __name__ == '__main__':
     video_location = "{:s}/{:s}".format(args.video_dir, args.video_name)
 
     # Run the smashscan test indicated by the input flags (tfnet by default).
-    if args.tms_test_flag:
-        run_all_tm_tests("tms", video_location, args.step_size,
+    if args.pms_test_flag:
+        run_all_pm_tests("pms", video_location, args.step_size,
             args.start_fnum, args.stop_fnum, args.num_frames,
             args.show_flag, args.wait_flag)
-    elif args.tmc_test_flag:
-        run_all_tm_tests("tmc", video_location, args.step_size,
+    elif args.pmc_test_flag:
+        run_all_pm_tests("pmc", video_location, args.step_size,
             args.start_fnum, args.stop_fnum, args.num_frames,
             args.show_flag, args.wait_flag)
-    elif args.tmi_test_flag:
-        run_all_tm_tests("tmi", video_location, args.step_size,
+    elif args.pmi_test_flag:
+        run_all_pm_tests("pmi", video_location, args.step_size,
             args.start_fnum, args.stop_fnum, args.num_frames,
             args.show_flag, args.wait_flag)
-    elif args.tmt_test_flag:
-        run_all_tm_tests("tmt", video_location, args.step_size,
+    elif args.pmt_test_flag:
+        run_all_pm_tests("pmt", video_location, args.step_size,
             args.start_fnum, args.stop_fnum, args.num_frames,
             args.show_flag, args.wait_flag)
-    else:
+    elif args.sdt_test_flag:
         capture = cv2.VideoCapture(video_location)
         sd = stage_detector.StageDetector(capture, args.step_size,
             args.save_flag, args.show_flag)
         sd.standard_test()
+    else:
+        va = video_analysis.VideoAnalyzer(video_location, args.show_flag)
+        va.standard_test()
