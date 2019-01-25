@@ -4,10 +4,9 @@ This project is intended to perform video analysis on pre-recorded footage of th
 
 ## TODO List
 If you are interested in helping out, join this repository's [Slack](https://join.slack.com/t/smashscan/shared_invite/enQtNDE5MjA5OTI0NDgwLTYwNGNkOWFmZjRjYjkwNDRkNzMzZGJjZjQwZTY5Y2YwZDhmNDJiYzEyZjk1OWJmMmU2YzYzNjRjMTIzYmM2YTI) and send a message.
-+ Create a framework that allows the testing of multiple object detection APIs, to perform accuracy and speed comparisons
++ Research ways to detect the percent counter (Either template matching, feature matching, or neural networks)
 + Research ways to detect stock icons (Either template matching, feature matching, or neural networks)
 + Research ways to detect the timer (Either template matching, feature matching, or neural networks)
-+ Research ways to detect the percent counter (Either template matching, feature matching, or neural networks)
 + Add additional game capabilities (SSB64, SSB4, PM, Rivals)
 
 ### Milestones

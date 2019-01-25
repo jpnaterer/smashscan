@@ -14,12 +14,12 @@ import timeline
 # results with cv2.imshow(), and wait_flag which waits between frames.
 class PercentMatcher:
 
-    def __init__(self, capture, step_size=60, frame_range=None, num_frames=60,
-        gray_flag=True, show_flag=False, wait_flag=False):
+    def __init__(self, capture, step_size=60, frame_range=None,
+        num_init_frames=60, gray_flag=True, show_flag=False, wait_flag=False):
 
         self.capture = capture
         self.step_size = step_size
-        self.num_frames = num_frames
+        self.num_init_frames = num_init_frames
         self.gray_flag = gray_flag
         self.show_flag = show_flag
 
@@ -54,6 +54,11 @@ class PercentMatcher:
             "resources/pct.png", gray_flag)
         self.pct_img, self.pct_mask = resize_image_and_mask(
             self.orig_pct_img, self.orig_pct_mask, 360/480)
+
+
+    def __del__(self):
+        self.capture.release()
+        cv2.destroyAllWindows()
 
 
     #### PERCENT MATCHER TESTS ################################################
@@ -116,7 +121,7 @@ class PercentMatcher:
         # Generate random frames to search for a proper template size.
         start_time = time.time()
         random_fnum_list = np.random.randint(low=self.start_fnum,
-            high=self.stop_fnum, size=self.num_frames)
+            high=self.stop_fnum, size=self.num_init_frames)
         opt_w_list, bbox_list = list(), list()
 
         for random_fnum in random_fnum_list:
@@ -147,7 +152,7 @@ class PercentMatcher:
         self.template_roi = self.get_template_roi(bbox_list)
         print("Optimal Template Size: ({}, {})".format(opt_w, h*opt_w//w))
         print("Optimal ROI bbox: {}".format(self.template_roi))
-        util.display_fps(start_time, self.num_frames)
+        util.display_fps(start_time, self.num_init_frames)
         util.show_frame(frame, bbox_list=[self.template_roi], wait_flag=True)
 
 
@@ -157,7 +162,7 @@ class PercentMatcher:
         # Use a random number of frames to calibrate the percent template size.
         start_time = time.time()
         self.initialize_template_scale()
-        util.display_fps(start_time, self.num_frames, "Initialize")
+        util.display_fps(start_time, self.num_init_frames, "Initialize")
 
         # Iterate through the video to identify when percent is present.
         start_time = time.time()
@@ -343,7 +348,7 @@ class PercentMatcher:
 
         # Generate random frames to search for a proper template size.
         random_fnum_list = np.random.randint(low=self.start_fnum,
-            high=self.stop_fnum, size=self.num_frames)
+            high=self.stop_fnum, size=self.num_init_frames)
         opt_w_list, bbox_list = list(), list()
 
         for random_fnum in random_fnum_list:
