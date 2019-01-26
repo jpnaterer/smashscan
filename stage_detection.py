@@ -26,15 +26,17 @@ LABELS_LIST = ["battlefield", "dreamland", "finaldest",
 # display results.
 class StageDetector:
 
-    def __init__(self, capture, step_size=60, save_flag=False, show_flag=False):
+    def __init__(self, capture, show_flag=False, save_flag=False):
         self.capture = capture
-        self.step_size = step_size
         self.save_flag = save_flag
         self.show_flag = show_flag
 
         # Predetermined parameters that have been tested to work best.
         self.end_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.min_match_length_s = 30
         self.num_match_frames = 5
+        self.step_size = 60
+        self.timeline_empty_thresh = 4
 
         # Initialize DarkFlow TFNet object with weights from cfg folder.
         self.tfnet = TFNet(TFNET_OPTIONS)
@@ -42,8 +44,6 @@ class StageDetector:
 
     def __del__(self):
         self.tfnet.sess.close()
-        self.capture.release()
-        cv2.destroyAllWindows()
 
 
     #### STAGE DETECTOR TESTS ##################################################
@@ -91,8 +91,10 @@ class StageDetector:
 
         # Fill holes in the history timeline list, and filter out timeline
         # sections that are smaller than a particular size.
-        clean_timeline = timeline.fill_filter(dirty_timeline)
-        clean_timeline = timeline.size_filter(clean_timeline, self.step_size)
+        clean_timeline = timeline.fill_filter(dirty_timeline,
+            self.timeline_empty_thresh)
+        clean_timeline = timeline.size_filter(clean_timeline,
+            self.step_size, self.min_match_length_s)
         timeline.show_plots(dirty_timeline, clean_timeline, LABELS_LIST)
 
         # Get a list of the matches and avg bboxes according to clean_timeline.

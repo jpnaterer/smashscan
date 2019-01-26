@@ -9,7 +9,7 @@ import video_analysis
 
 # Run the PM test over a wide range of input parameters.
 def run_all_pm_tests(test_type_str, video_location,
-    step_size, start_fnum, stop_fnum, num_init_frames, show_flag, wait_flag):
+    start_fnum, stop_fnum, show_flag, wait_flag):
 
     # Create a capture object and set the stop frame number if none was given.
     capture = cv2.VideoCapture(video_location)
@@ -17,22 +17,22 @@ def run_all_pm_tests(test_type_str, video_location,
         stop_fnum = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # Run the PM test over various parameter configurations,
-    run_pm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
-        num_init_frames, show_flag, wait_flag, gray_flag=False)
-    run_pm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
-        num_init_frames, show_flag, wait_flag, gray_flag=True)
+    run_pm_test(capture, test_type_str, start_fnum, stop_fnum,
+        show_flag, wait_flag, gray_flag=False)
+    run_pm_test(capture, test_type_str, start_fnum, stop_fnum,
+        show_flag, wait_flag, gray_flag=True)
 
     # Release the OpenCV capture object.
     capture.release()
 
 
 # Run a single PM test over a given group of input parameters.
-def run_pm_test(capture, test_type_str, step_size, start_fnum, stop_fnum,
-    num_init_frames, show_flag, wait_flag, gray_flag):
+def run_pm_test(capture, test_type_str, start_fnum, stop_fnum,
+    show_flag, wait_flag, gray_flag):
 
     # Initialize the PM object.
-    pm = percent_matching.PercentMatcher(capture, step_size, [start_fnum,
-        stop_fnum], num_init_frames, gray_flag, show_flag, wait_flag)
+    pm = percent_matching.PercentMatcher(capture, [start_fnum, stop_fnum],
+        gray_flag, show_flag, wait_flag)
 
     # Display the flags used for the current PM test.
     print("==== Percent Matching Test ====")
@@ -57,14 +57,6 @@ if __name__ == '__main__':
     parser.add_argument('video_name', type=str,
         help='The name of the video file to be tested on.')
 
-    # Add a number of keyword arguments for various testing parameters.
-    parser.add_argument('-save', '--save_flag', action='store_true',
-        help='A flag used to determine if frames are saved.')
-    parser.add_argument('-step', '--step_size', type=int, default=60,
-        nargs='?', help='The step size used when testing.')
-    parser.add_argument('-dir', '--video_dir', type=str, default='videos',
-        nargs='?', help='The video file directory to be used.')
-
     # Add CLI arguments to run various smashscan tests.
     parser.add_argument('-pms', '--pms_test_flag', action='store_true',
         help='A flag used to run the percent matching sweep test.')
@@ -82,38 +74,34 @@ if __name__ == '__main__':
         help='A flag used to display the results as each test runs.')
     parser.add_argument('-wait', '--wait_flag', action='store_true',
         help='A flag used to wait for key inputs during displaying frames.')
+    parser.add_argument('-save', '--save_flag', action='store_true',
+        help='A flag used to determine if frames are saved.')
     parser.add_argument('-start', '--start_fnum', type=int, default=0,
         nargs='?', help='The initial frame to begin testing.')
     parser.add_argument('-stop', '--stop_fnum', type=int, default=0,
         nargs='?', help='The final frame to end testing.')
-    parser.add_argument('-num', '--num_init_frames', type=int, default=30,
-        nargs='?', help='The number of frames used for testing.')
 
     # Parse the CLI arguments and create a compact video location string.
     args = parser.parse_args()
-    video_location = "{:s}/{:s}".format(args.video_dir, args.video_name)
+    video_location = "{:s}/{:s}".format('videos', args.video_name)
 
     # Run the smashscan test indicated by the input flags (tfnet by default).
     if args.pms_test_flag:
-        run_all_pm_tests("pms", video_location, args.step_size,
-            args.start_fnum, args.stop_fnum, args.num_init_frames,
-            args.show_flag, args.wait_flag)
+        run_all_pm_tests("pms", video_location, args.start_fnum,
+            args.stop_fnum, args.show_flag, args.wait_flag)
     elif args.pmc_test_flag:
-        run_all_pm_tests("pmc", video_location, args.step_size,
-            args.start_fnum, args.stop_fnum, args.num_init_frames,
-            args.show_flag, args.wait_flag)
+        run_all_pm_tests("pmc", video_location, args.start_fnum,
+            args.stop_fnum, args.show_flag, args.wait_flag)
     elif args.pmi_test_flag:
-        run_all_pm_tests("pmi", video_location, args.step_size,
-            args.start_fnum, args.stop_fnum, args.num_init_frames,
-            args.show_flag, args.wait_flag)
+        run_all_pm_tests("pmi", video_location, args.start_fnum,
+            args.stop_fnum, args.show_flag, args.wait_flag)
     elif args.pmt_test_flag:
-        run_all_pm_tests("pmt", video_location, args.step_size,
-            args.start_fnum, args.stop_fnum, args.num_init_frames,
-            args.show_flag, args.wait_flag)
+        run_all_pm_tests("pmt", video_location, args.start_fnum,
+            args.stop_fnum, args.show_flag, args.wait_flag)
     elif args.sdt_test_flag:
         capture = cv2.VideoCapture(video_location)
-        sd = stage_detection.StageDetector(capture, args.step_size,
-            args.save_flag, args.show_flag)
+        sd = stage_detection.StageDetector(capture,
+            args.show_flag, args.save_flag)
         sd.standard_test()
     else:
         va = video_analysis.VideoAnalyzer(video_location, args.show_flag)

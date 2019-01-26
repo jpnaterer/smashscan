@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 # labels (stages) found by tfnet. (-1) represents that no stage was found. The
 # goal of this filter is to fill in small time segment holes, while also
 # filtering out small time segments.
-def fill_filter(dirty_timeline_in, differ_thresh=4):
+def fill_filter(dirty_timeline_in, differ_thresh):
     # Add some no-stage found states at the end of dirty_timeline to allow the
     # filter defined below work at the end of the list. This fix is necessary
     # when the match ends too close (with differ_thresh) to the end of the
@@ -72,10 +72,10 @@ def fill_filter(dirty_timeline_in, differ_thresh=4):
 # A custom filter that works on an int array that represents the timeline of
 # labels found by tfnet. (-1) represents that no stage was found. The goal of
 # this filter is to remove all time segments shorter than match_length_thresh.
-def size_filter(dirty_timeline, step_size):
+def size_filter(dirty_timeline, step_size, min_match_length_s):
     # The time required for a time segment to be considered gameplay. Assumes
-    # the game is captured as 30fps, and the minimum match length is 30s.
-    match_length_thresh = int(30 * (30 / step_size))
+    # the game is captured as 30fps, with a given match length in seconds.
+    match_length_thresh = int(min_match_length_s * (30 / step_size))
 
     # Filter out matches that are less than match_length_thresh.
     match_ranges = get_ranges(dirty_timeline)

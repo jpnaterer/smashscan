@@ -14,23 +14,25 @@ import timeline
 # results with cv2.imshow(), and wait_flag which waits between frames.
 class PercentMatcher:
 
-    def __init__(self, capture, step_size=60, frame_range=None,
-        num_init_frames=60, gray_flag=True, show_flag=False, wait_flag=False):
+    def __init__(self, capture, frame_range=None,
+        gray_flag=True, show_flag=False, wait_flag=False):
 
         self.capture = capture
-        self.step_size = step_size
-        self.num_init_frames = num_init_frames
         self.gray_flag = gray_flag
         self.show_flag = show_flag
 
         # Predetermined parameters that have been tested to work best.
-        self.roi_flag = True
-        self.template_match_radius = 2
-        self.conf_threshold = 0.8
         self.calib_w_range = (24, 30)
-        self.roi_y_tolerance = 3
+        self.conf_threshold = 0.8
+        self.min_match_length_s = 30
+        self.num_init_frames = 30
         self.prec_step_size = 2
         self.prec_step_threshold = 4
+        self.roi_flag = True
+        self.roi_y_tolerance = 3
+        self.step_size = 60
+        self.template_match_radius = 2
+        self.timeline_empty_thresh = 4
 
         # Paramaters that are redefined later on during initialization.
         self.template_roi = None
@@ -56,14 +58,10 @@ class PercentMatcher:
             self.orig_pct_img, self.orig_pct_mask, 360/480)
 
 
-    def __del__(self):
-        self.capture.release()
-        cv2.destroyAllWindows()
-
-
     #### PERCENT MATCHER TESTS ################################################
 
-    # Run the sweep template matching test over a video range.
+    # Runs the sweep template matching test over a video range, which displays
+    # four template matching results for a default sized percent template.
     def sweep_test(self):
 
         # Iterate through video range and use cv2 to perform template matching.
@@ -87,7 +85,8 @@ class PercentMatcher:
         util.display_fps(start_time, frame_count)
 
 
-    # Run the calibrate template test over a video range.
+    # Runs the calibrate template test over a video range, which displays an
+    # updated template size compared to the default sized percent template.
     def calibrate_test(self):
 
         # Iterate through video range and use cv2 to perform template matching.
@@ -115,7 +114,8 @@ class PercentMatcher:
         util.display_fps(start_time, frame_count)
 
 
-    # Run the initialize template test over a number of random frames.
+    # Runs the initialize template test over a number of random frames to
+    # determine the median template size.
     def initialize_test(self):
 
         # Generate random frames to search for a proper template size.
@@ -172,8 +172,10 @@ class PercentMatcher:
 
         # Fill holes in the history timeline list, and filter out timeline
         # sections that are smaller than a particular size.
-        clean_timeline = timeline.fill_filter(pct_timeline)
-        clean_timeline = timeline.size_filter(clean_timeline, self.step_size)
+        clean_timeline = timeline.fill_filter(pct_timeline,
+            self.timeline_empty_thresh)
+        clean_timeline = timeline.size_filter(clean_timeline,
+            self.step_size, self.min_match_length_s)
         if self.show_flag:
             timeline.show_plots(pct_timeline, clean_timeline, ["pct found"])
 
