@@ -109,36 +109,8 @@ class StageDetector:
             display_bboxes += [match_bboxes[i], match_bboxes[i]]
         util.show_frames(self.capture, display_frames, display_bboxes)
 
-    # Run the match test. Given match ranges, determine the stage for each match.
-    def match_test(self, match_ranges):
 
-        start_time = time.time()
-        match_labels = list()
-
-        # For each match range, generated random frame numbers to search.
-        for match_range in match_ranges:
-            random_fnum_list = np.random.randint(low=match_range[0],
-                high=match_range[1], size=self.num_match_frames)
-            label_list = list()
-
-            # Find the labels for the random frame numbers selected.
-            for random_fnum in random_fnum_list:
-                self.capture.set(cv2.CAP_PROP_POS_FRAMES, random_fnum)
-                _, frame = self.capture.read()
-                _, label, _ = self.get_tfnet_result(frame)
-                if label:
-                    label_list.append(label)
-
-            # Find the label that occured the most during the tested frames.
-            match_label = max(set(label_list), key=label_list.count)
-            match_labels.append(match_label)
-
-        # Display the Results of the test.
-        num_frames_detected = len(match_ranges)*self.num_match_frames
-        util.display_fps(start_time, num_frames_detected, "Stage Detection")
-        print("\tMatch Labels: {:}".format(match_labels))
-
-    #### STAGE DETECTOR HELPER METHODS #########################################
+    #### STAGE DETECTOR INTERNAL METHODS #######################################
 
     # Return the tfnet prediction with the highest confidence.
     def get_tfnet_result(self, frame):
@@ -161,31 +133,41 @@ class StageDetector:
 
         return bbox, label, confidence
 
-
     # Given match ranges and bounding box history, return a list of the average
     # bounding box (top left and bottom right coordinate pair) of each match.
     def get_match_bboxes(self, match_ranges, bbox_hist):
         match_bboxes = list()
-
-        # Iterate through match ranges and set match_size as a counter for the
-        # number of elements summed, and tl_sum/br_sum as the actual sums.
-        for match_range in match_ranges:
-            match_size = 0
-            tl_sum, br_sum = (0, 0), (0, 0)
-
-            # Use the match_range to iterate through the bbox_hist to sum the
-            # (tl, br) pair. Numpy is used to easily sum the tuples.
-            for i in range(match_range[0], match_range[1]):
-                if bbox_hist[i] != -1:
-                    match_size += 1
-                    tl_sum = np.add(tl_sum, bbox_hist[i][0])
-                    br_sum = np.add(br_sum, bbox_hist[i][1])
-
-            # Round the (tl, br) avg to the nearest int and append to the list.
-            tl = (int(round(tl_sum[0]/match_size)),
-                int(round(tl_sum[1]/match_size)))
-            br = (int(round(br_sum[0]/match_size)),
-                int(round(br_sum[1]/match_size)))
-            match_bboxes.append((tl, br))
-
+        for mr in match_ranges:
+            avg_bbox = util.get_avg_bbox(bbox_hist[mr[0]: mr[1]])
+            match_bboxes.append(avg_bbox)
         return match_bboxes
+
+
+    #### STAGE DETECTOR EXTERNAL METHODS #######################################
+
+    # Given a list of match ranges, randomly select frames from each range and
+    # return the average bounding box and expected label for each match.
+    def get_match_data(self, match_ranges):
+
+        # For each match range, generated random frame numbers to search.
+        match_bboxes, match_labels = list(), list()
+        for match_range in match_ranges:
+            random_fnum_list = np.random.randint(low=match_range[0],
+                high=match_range[1], size=self.num_match_frames)
+            bbox_list, label_list = list(), list()
+
+            # Find the labels for the random frame numbers selected.
+            for random_fnum in random_fnum_list:
+                self.capture.set(cv2.CAP_PROP_POS_FRAMES, random_fnum)
+                _, frame = self.capture.read()
+                bbox, label, _ = self.get_tfnet_result(frame)
+                if label:
+                    bbox_list.append(bbox)
+                    label_list.append(label)
+
+            # Find the label that occured the most during the tested frames.
+            match_label = max(set(label_list), key=label_list.count)
+            match_bboxes.append(util.get_avg_bbox(bbox_list))
+            match_labels.append(match_label)
+
+        return match_bboxes, match_labels

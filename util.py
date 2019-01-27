@@ -1,5 +1,6 @@
 import time
 import cv2
+import numpy as np
 
 # Given a frame number and additional parameters, return a frame.
 def get_frame(capture, frame_num, gray_flag=False):
@@ -61,6 +62,35 @@ def show_frames(capture, frame_num_list, bbox_list=None, wait_flag=True):
             cv2.waitKey(0)
         else:
             cv2.waitKey(1)
+
+
+# Given a list of bounding boxes, return the average bounding box.
+def get_avg_bbox(bbox_list):
+    total_bboxes = 0
+    tl_sum, br_sum = (0, 0), (0, 0)
+
+    # Sum the (tl, br) pairs, using Numpy to easily sum tuples. Skip the
+    # summation if (-1) is found, since it represents a missing bbox.
+    for bbox in bbox_list:
+        if bbox != -1:
+            total_bboxes += 1
+            tl_sum = np.add(tl_sum, bbox[0])
+            br_sum = np.add(br_sum, bbox[1])
+
+    # Round the (tl, br) avg to the nearest int and append to the list.
+    tl = (int(round(tl_sum[0]/total_bboxes)),
+        int(round(tl_sum[1]/total_bboxes)))
+    br = (int(round(br_sum[0]/total_bboxes)),
+        int(round(br_sum[1]/total_bboxes)))
+    return ((tl, br))
+
+
+#### LOGGING FUNCTIONS #########################################################
+
+# Display the total time taken of a test procedure.
+def display_total_time(start_time, title=""):
+    stop_time = time.time() - start_time
+    print("\tTotal {:} Time: {:.2f}s".format(title, stop_time))
 
 
 # Display the total time taken and average FPS of a test procedure.

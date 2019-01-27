@@ -188,7 +188,7 @@ class PercentMatcher:
         # Display the frames associated with the precise match ranges.
         start_time = time.time()
         new_match_ranges = self.get_precise_match_ranges(match_ranges)
-        util.display_fps(start_time, 0, "Cleaning Sweep")
+        util.display_total_time(start_time, "Cleaning Sweep")
         print("\tMatch Ranges: {:}".format(match_ranges.tolist()))
         print("\tPrecise Match Ranges: {:}".format(new_match_ranges.tolist()))
         if self.show_flag:
@@ -197,12 +197,14 @@ class PercentMatcher:
 
 
     # Run the port template test over a video range.
-    def port_test(self, match_ranges):
+    def port_test(self, match_ranges, match_bboxes):
 
         start_time = time.time()
-        for match_range in match_ranges:
+        for i, match_range in enumerate(match_ranges):
             random_fnum_list = np.random.randint(low=match_range[0],
                 high=match_range[1], size=self.num_init_frames)
+            random_fnum_list = random_fnum_list.tolist()
+            random_fnum_list.append(8947) # TODO: For outlier testing.
             print(match_range)
             x_pos_list = list()
             for fnum in random_fnum_list:
@@ -215,13 +217,28 @@ class PercentMatcher:
             x_cluster_list, prev_cluster_start = list(), 0
             x_pos_list_sorted = np.sort(np.unique(x_pos_list)).tolist()
             x_pos_list_sorted = x_pos_list_sorted + [1000]
-            for i in range(0, len(x_pos_list_sorted)-1):
-                if x_pos_list_sorted[i+1] - x_pos_list_sorted[i] > 50:
+            for j in range(0, len(x_pos_list_sorted)-1):
+                if x_pos_list_sorted[j+1] - x_pos_list_sorted[j] > 40:
                     x_cluster_list.append(
-                        x_pos_list_sorted[prev_cluster_start:i+1])
-                    prev_cluster_start = i+1
+                        x_pos_list_sorted[prev_cluster_start:j+1])
+                    prev_cluster_start = j+1
             print(x_cluster_list)
-        util.display_fps(start_time, 0, "Port Sweep")
+            print(match_bboxes[i])
+            print(x_pos_list)
+
+            x_cluster_list_mode = list()
+            for x_cluster in x_cluster_list:
+                current_count = 5
+                current_x = -1
+                for x in x_cluster:
+                    if x_pos_list.count(x) > current_count:
+                        current_count = x_pos_list.count(x)
+                        current_x = x
+                if current_x != -1:
+                    x_cluster_list_mode.append(current_x)
+            print(x_cluster_list_mode)
+
+        util.display_total_time(start_time, "Port Sweep")
 
 
     #### PERCENT MATCHER HELPER METHODS #######################################
