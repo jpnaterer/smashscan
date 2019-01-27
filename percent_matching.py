@@ -23,7 +23,7 @@ class PercentMatcher:
 
         # Predetermined parameters that have been tested to work best.
         self.calib_w_range = (24, 30)
-        self.conf_threshold = 0.8
+        self.conf_thresh = 0.8
         self.min_match_length_s = 30
         self.num_init_frames = 30
         self.prec_step_size = 2
@@ -70,7 +70,7 @@ class PercentMatcher:
 
             # Obtain the frame and get the template confidences and locations.
             frame = util.get_frame(self.capture, fnum, self.gray_flag)
-            confidence_list, bbox_list = self.get_tm_results(frame, 4)
+            confidence_list, bbox_list = self.get_tm_results(frame, 4, 0)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
@@ -99,7 +99,7 @@ class PercentMatcher:
 
             # Get the percent sign accuracy according to the default (480, 584)
             # to (360, 640) rescale change from (24, 32) to (18, 24).
-            orig_conf_list, _ = self.get_tm_results(frame, 1)
+            orig_conf_list, _ = self.get_tm_results(frame, 1, 0)
 
             # Display frame with a confidence label if show_flag is enabled.
             if self.show_flag:
@@ -130,10 +130,10 @@ class PercentMatcher:
             # according to the default (24, 32) to (18, 24) rescale.
             frame = util.get_frame(self.capture, random_fnum, self.gray_flag)
             bbox, opt_conf, opt_w, opt_h = self.get_calibrate_results(frame)
-            orig_conf_list, _ = self.get_tm_results(frame, 1)
+            orig_conf_list, _ = self.get_tm_results(frame, 1, 0)
 
             # Store the template width if above a confidence threshold.
-            if opt_conf > self.conf_threshold:
+            if opt_conf > self.conf_thresh:
                 opt_w_list.append(opt_w)
                 bbox_list.append(bbox)
                 print((opt_w, opt_h), bbox, random_fnum, opt_conf)
@@ -196,10 +196,38 @@ class PercentMatcher:
         return new_match_ranges
 
 
+    # Run the port template test over a video range.
+    def port_test(self, match_ranges):
+
+        start_time = time.time()
+        for match_range in match_ranges:
+            random_fnum_list = np.random.randint(low=match_range[0],
+                high=match_range[1], size=self.num_init_frames)
+            print(match_range)
+            x_pos_list = list()
+            for fnum in random_fnum_list:
+                frame = util.get_frame(self.capture, fnum, self.gray_flag)
+                conf_list, bbox_list = self.get_tm_results(frame, 4)
+                for bbox in bbox_list:
+                    x_pos_list.append(bbox[0][0])
+                print((fnum, conf_list, bbox_list))
+
+            x_cluster_list, prev_cluster_start = list(), 0
+            x_pos_list_sorted = np.sort(np.unique(x_pos_list)).tolist()
+            x_pos_list_sorted = x_pos_list_sorted + [1000]
+            for i in range(0, len(x_pos_list_sorted)-1):
+                if x_pos_list_sorted[i+1] - x_pos_list_sorted[i] > 50:
+                    x_cluster_list.append(
+                        x_pos_list_sorted[prev_cluster_start:i+1])
+                    prev_cluster_start = i+1
+            print(x_cluster_list)
+        util.display_fps(start_time, 0, "Port Sweep")
+
+
     #### PERCENT MATCHER HELPER METHODS #######################################
 
     # Given a frame, return a confidence list and bounding box list.
-    def get_tm_results(self, frame, num_results):
+    def get_tm_results(self, frame, num_results, conf_thresh=None):
 
         # If the template ROI has been initialized, take that subregion of the
         # frame. Otherwise, take the bottom quarter of the frame if the
@@ -209,19 +237,24 @@ class PercentMatcher:
         elif self.roi_flag:
             frame = frame[270:, :]
 
+        # Set the confidence threshold to the default, if none was input.
+        if conf_thresh is None:
+            conf_thresh = self.conf_thresh
+
         # Match the template using a normalized cross-correlation method and
         # retrieve the confidence and top-left points from the result.
         match_mat = cv2.matchTemplate(frame, self.pct_img,
             cv2.TM_CCORR_NORMED, mask=self.pct_mask)
-        conf_list, tl_list = self.get_match_results(match_mat, num_results)
+        conf_list, tl_list = self.get_match_results(
+            match_mat, num_results, conf_thresh)
 
         # Compensate for point location if a region of interest was used.
         if self.template_roi:
-            for i in range(num_results):
+            for i, _ in enumerate(tl_list):
                 tl_list[i] = (tl_list[i][0],
                     tl_list[i][1] + self.template_roi[0][1])
         elif self.roi_flag:
-            for i in range(num_results):
+            for i, _ in enumerate(tl_list):
                 tl_list[i] = (tl_list[i][0], tl_list[i][1] + 270)
 
         # Create a list of bounding boxes (top-left & bottom-right points),
@@ -238,20 +271,27 @@ class PercentMatcher:
     # Take the result of cv2.matchTemplate, and find the most likely locations
     # of a template match. To find multiple locations, the region around a
     # successful match is zeroed. Return a list of confidences and locations.
-    def get_match_results(self, match_mat, num_results):
+    def get_match_results(self, match_mat, num_results, conf_thresh):
         max_val_list, top_left_list = list(), list()
         match_mat_dims = match_mat.shape
 
         # Find multiple max locations in the input matrix using cv2.minMaxLoc
         # and then zeroing the surrounding region to find the next match.
-        for _ in range(0, num_results):
+        for i in range(0, num_results):
             _, max_val, _, top_left = cv2.minMaxLoc(match_mat)
             set_subregion_to_zeros(match_mat, match_mat_dims,
                 top_left, radius=self.template_match_radius)
             max_val_list.append(max_val)
             top_left_list.append(top_left)
 
-        return(max_val_list, top_left_list)
+        # Remove results that do not meet the confidence threshold.
+        conf_list, tl_list = list(), list()
+        for i, conf in enumerate(max_val_list):
+            if conf > conf_thresh:
+                conf_list.append(conf)
+                tl_list.append(top_left_list[i])
+
+        return (conf_list, tl_list)
 
 
     # Resize the original template a number of times to find the dimensions
@@ -324,7 +364,7 @@ class PercentMatcher:
                 confidence_list, _ = self.get_tm_results(frame, 1)
 
                 # Increment the precise counter if no pct was found.
-                if confidence_list[0] > self.conf_threshold:
+                if confidence_list:
                     prec_counter = 0
                 else:
                     prec_counter += 1
@@ -360,7 +400,7 @@ class PercentMatcher:
             bbox, opt_conf, opt_w, _ = self.get_calibrate_results(frame)
 
             # Store template info if confidence above an input threshold.
-            if opt_conf > self.conf_threshold:
+            if opt_conf > self.conf_thresh:
                 opt_w_list.append(opt_w)
                 bbox_list.append(bbox)
 
@@ -385,7 +425,7 @@ class PercentMatcher:
             confidence_list, _ = self.get_tm_results(frame, 1)
 
             # Append to the percent timeline according to if percent was found.
-            if confidence_list[0] > self.conf_threshold:
+            if confidence_list:
                 pct_timeline.append(0)
             else:
                 pct_timeline.append(-1)
@@ -429,30 +469,21 @@ def resize_image_and_mask(img, mask, img_scale):
     return resized_img, resized_mask
 
 
-# Take a matrix and coordinate, and set the region around that coordinate
-# to zeros. This function also prevents matrix out of bound errors if the
-# input coordinate is near the matrix border. Also, the input coordinate
-# is organized as (row, column) while matrices are organized (x, y). Matrices
+# Take a matrix and coordinate, and zero the region around that coordinate.
+# This also prevents matrix out of bound errors if the input coordinate is
+# near the border. Also, the input coordinate is organized as (x, y). Matrices
 # are pass by reference, so the input can be directly modified.
 def set_subregion_to_zeros(input_mat, mat_dims, center_pt, radius):
 
     # Set the top-left and bot-right points of the zeroed region. Note that
-    # mat_dims is organized as (width, height) or (x-range,y-range).
+    # mat_dims is organized as (height, width), and tl/br is (y, x).
     tl = (max(center_pt[1]-radius, 0),
           max(center_pt[0]-radius, 0))
-    br = (min(center_pt[1]+radius+1, mat_dims[0]-1),
-          min(center_pt[0]+radius+1, mat_dims[1]-1))
+    br = (min(center_pt[1]+radius+1, mat_dims[0]),
+          min(center_pt[0]+radius+1, mat_dims[1]))
 
-    # Calculate the size of the region to be zeroed. Initialize it as a square
-    # of size (2r+1), then subtract off the region that is cutoff by a border.
-    x_size, y_size = radius*2+1, radius*2+1
-    if center_pt[1]-radius < 0:
-        x_size -= radius-center_pt[1]
-    elif center_pt[1]+radius+1 > mat_dims[0]-1:
-        x_size -= center_pt[1]+radius+1 - (mat_dims[0]-1)
-    if center_pt[0]-radius < 0:
-        y_size -= radius-center_pt[0]
-    elif center_pt[0]+radius+1 > mat_dims[1]-1:
-        y_size -= center_pt[0]+radius+1 - (mat_dims[1]-1)
+    # Calculate the size of the region to be zeroed.
+    x_size = br[0] - tl[0]
+    y_size = br[1] - tl[1]
 
     input_mat[tl[0]:br[0], tl[1]:br[1]] = np.zeros((x_size, y_size))

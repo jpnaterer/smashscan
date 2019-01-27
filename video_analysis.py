@@ -19,3 +19,4 @@ class VideoAnalyzer:
     def standard_test(self):
         match_ranges = self.pm.timeline_test()
         self.sd.match_test(match_ranges)
+        self.pm.port_test(match_ranges)
