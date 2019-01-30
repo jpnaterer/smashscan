@@ -82,7 +82,7 @@ def get_avg_bbox(bbox_list):
         int(round(tl_sum[1]/total_bboxes)))
     br = (int(round(br_sum[0]/total_bboxes)),
         int(round(br_sum[1]/total_bboxes)))
-    return ((tl, br))
+    return (tl, br)
 
 
 #### LOGGING FUNCTIONS #########################################################

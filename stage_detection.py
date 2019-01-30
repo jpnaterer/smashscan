@@ -33,6 +33,7 @@ class StageDetector:
 
         # Predetermined parameters that have been tested to work best.
         self.end_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.max_num_match_frames = 30
         self.min_match_length_s = 30
         self.num_match_frames = 5
         self.step_size = 60
@@ -147,7 +148,7 @@ class StageDetector:
 
     # Given a list of match ranges, randomly select frames from each range and
     # return the average bounding box and expected label for each match.
-    def get_match_data(self, match_ranges):
+    def get_match_bboxes_and_labels(self, match_ranges):
 
         # For each match range, generated random frame numbers to search.
         match_bboxes, match_labels = list(), list()
@@ -164,6 +165,22 @@ class StageDetector:
                 if label:
                     bbox_list.append(bbox)
                     label_list.append(label)
+
+            # Attempt to find a stage if none was found in the initial search.
+            if not label_list:
+                for _ in range(self.max_num_match_frames):
+                    fnum = np.random.randint(match_range[0], match_range[1])
+                    self.capture.set(cv2.CAP_PROP_POS_FRAMES, fnum)
+                    _, frame = self.capture.read()
+                    bbox, label, _ = self.get_tfnet_result(frame)
+                    if label:
+                        bbox_list, label_list = [bbox], [label]
+                        break
+
+            # If no stages were found again, return and declare a failure.
+            if not label_list:
+                print("\tUnidentifiable Match Range: {}".format(match_range))
+                return None, None
 
             # Find the label that occured the most during the tested frames.
             match_label = max(set(label_list), key=label_list.count)

@@ -23,9 +23,16 @@ class VideoAnalyzer:
 
         # Use the Stage Detector to determine the match bboxes and labels.
         start_time = time.time()
-        match_bboxes, match_labels = self.sd.get_match_data(match_ranges)
-        util.display_total_time(start_time, "Stage Detection")
-        print("\tMatch Bboxes: {:}".format(match_bboxes))
-        print("\tMatch Labels: {:}".format(match_labels))
+        match_bboxes, match_labels = \
+            self.sd.get_match_bboxes_and_labels(match_ranges)
+
+        # Exit the test if a stage was not found within a match range.
+        if match_labels:
+            util.display_total_time(start_time, "Stage Detection")
+            print("\tMatch Bboxes: {:}".format(match_bboxes))
+            print("\tMatch Labels: {:}".format(match_labels))
+        else:
+            print("\tNo stage detected!")
+            return False
 
         self.pm.port_test(match_ranges, match_bboxes)

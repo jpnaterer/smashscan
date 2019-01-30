@@ -3,8 +3,9 @@ import cv2
 import numpy as np
 
 # SmashScan Libraries
-import util
+import position_tools
 import timeline
+import util
 
 # An object that takes a capture and a number of input parameters and performs
 # a number of template matching operations. Parameters include a step_size for
@@ -203,8 +204,7 @@ class PercentMatcher:
         for i, match_range in enumerate(match_ranges):
             random_fnum_list = np.random.randint(low=match_range[0],
                 high=match_range[1], size=self.num_init_frames)
-            random_fnum_list = random_fnum_list.tolist()
-            random_fnum_list.append(8947) # TODO: For outlier testing.
+
             print(match_range)
             x_pos_list = list()
             for fnum in random_fnum_list:
@@ -214,29 +214,10 @@ class PercentMatcher:
                     x_pos_list.append(bbox[0][0])
                 print((fnum, conf_list, bbox_list))
 
-            x_cluster_list, prev_cluster_start = list(), 0
-            x_pos_list_sorted = np.sort(np.unique(x_pos_list)).tolist()
-            x_pos_list_sorted = x_pos_list_sorted + [1000]
-            for j in range(0, len(x_pos_list_sorted)-1):
-                if x_pos_list_sorted[j+1] - x_pos_list_sorted[j] > 40:
-                    x_cluster_list.append(
-                        x_pos_list_sorted[prev_cluster_start:j+1])
-                    prev_cluster_start = j+1
-            print(x_cluster_list)
-            print(match_bboxes[i])
-            print(x_pos_list)
-
-            x_cluster_list_mode = list()
-            for x_cluster in x_cluster_list:
-                current_count = 5
-                current_x = -1
-                for x in x_cluster:
-                    if x_pos_list.count(x) > current_count:
-                        current_count = x_pos_list.count(x)
-                        current_x = x
-                if current_x != -1:
-                    x_cluster_list_mode.append(current_x)
-            print(x_cluster_list_mode)
+            port_pos_list = position_tools.get_port_pos_list(x_pos_list)
+            port_num_list = position_tools.get_port_num_list(
+                port_pos_list, match_bboxes[i])
+            print(port_num_list)
 
         util.display_total_time(start_time, "Port Sweep")
 
