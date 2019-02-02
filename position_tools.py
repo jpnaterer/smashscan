@@ -12,8 +12,8 @@ def get_port_pos_list(x_pos_list):
             x_cluster_list.append(
                 x_pos_list_sorted[prev_cluster_start:j+1])
             prev_cluster_start = j+1
-    print(x_cluster_list)
-    print(x_pos_list)
+    # print(x_cluster_list)
+    # print(x_pos_list)
 
     x_cluster_list_mode = list()
     for x_cluster in x_cluster_list:
@@ -25,7 +25,7 @@ def get_port_pos_list(x_pos_list):
                 current_x = x
         if current_x != -1:
             x_cluster_list_mode.append(current_x)
-    print(x_cluster_list_mode)
+    # print(x_cluster_list_mode)
     return x_cluster_list_mode
 
 
@@ -33,7 +33,7 @@ def get_port_pos_list(x_pos_list):
 # determine the port numbers that are in use using rough positional estimates.
 def get_port_num_list(port_pos_list, match_bbox):
     port_pos_list_adj = [x - match_bbox[0][0] for x in port_pos_list]
-    print(port_pos_list_adj)
+    # print(port_pos_list_adj)
     ports_used = list()
     for x in port_pos_list_adj:
         if 0 <= x < 150:

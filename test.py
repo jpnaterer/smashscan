@@ -1,10 +1,22 @@
 import argparse
+import os
 import cv2
+from darkflow.net.build import TFNet
 
 # SmashScan libraries
 import stage_detection
 import percent_matching
 import video_analysis
+
+# Darkflow/Tensorflow default settings:
+TFNET_OPTIONS = {
+    'config': 'cfg',
+    'model': 'cfg/tiny-yolo-voc-6c.cfg',
+    'metaLoad': 'cfg/tiny-yolo-voc-6c.meta',
+    'pbLoad': 'cfg/tiny-yolo-voc-6c.pb',
+    'threshold': 0.25,
+    'gpu': 1.0
+}
 
 
 # Run the PM test over a wide range of input parameters.
@@ -16,38 +28,71 @@ def run_all_pm_tests(test_type_str, video_location,
     if stop_fnum == 0:
         stop_fnum = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    # Run the PM test over various parameter configurations,
-    run_pm_test(capture, test_type_str, start_fnum, stop_fnum,
-        show_flag, wait_flag, gray_flag=False)
-    run_pm_test(capture, test_type_str, start_fnum, stop_fnum,
-        show_flag, wait_flag, gray_flag=True)
+    # Run the PM test with grayscale and non-grayscale parameters.
+    for gray_flag in [False, True]:
+
+        # Display the flags used for the current PM test.
+        print("==== Percent Matching Test ====")
+        print("\tgray_flag={}".format(gray_flag))
+        print("\tshow_flag={}".format(show_flag))
+        pm = percent_matching.PercentMatcher(capture,
+            [start_fnum, stop_fnum], gray_flag, show_flag, wait_flag)
+
+        # Run the PM test according to the input test_type_str.
+        if test_type_str == "pms":
+            pm.sweep_test()
+        elif test_type_str == "pmc":
+            pm.calibrate_test()
+        elif test_type_str == "pmi":
+            pm.initialize_test()
+        elif test_type_str == "pmt":
+            pm.timeline_test()
 
     # Release the OpenCV capture object.
     capture.release()
 
 
-# Run a single PM test over a given group of input parameters.
-def run_pm_test(capture, test_type_str, start_fnum, stop_fnum,
-    show_flag, wait_flag, gray_flag):
+# Run the VA test over the entire video folder.
+def run_va_over_video_folder():
 
-    # Initialize the PM object.
-    pm = percent_matching.PercentMatcher(capture, [start_fnum, stop_fnum],
-        gray_flag, show_flag, wait_flag)
+    # Create a single darkflow object to be reused by each video analyzer.
+    tfnet = TFNet(TFNET_OPTIONS)
+    video_info_list = list()
 
-    # Display the flags used for the current PM test.
-    print("==== Percent Matching Test ====")
-    print("\tgray_flag={}".format(gray_flag))
-    print("\tshow_flag={}".format(show_flag))
+    # Perform video analysis over all the videos in the video directory.
+    for file_name in os.listdir('videos'):
 
-    # Run the PM test according to the input test_type_str.
-    if test_type_str == "pms":
-        pm.sweep_test()
-    elif test_type_str == "pmc":
-        pm.calibrate_test()
-    elif test_type_str == "pmi":
-        pm.initialize_test()
-    elif test_type_str == "pmt":
-        pm.timeline_test()
+        # Skip the files that do not contain a .mp4 extension
+        if "mp4" not in file_name:
+            continue
+        video_location = "{:s}/{:s}".format('videos', file_name)
+        va = video_analysis.VideoAnalyzer(video_location,
+            tfnet, args.show_flag)
+        video_info_list.append(va.standard_test())
+
+    # Calculate the overall video statistics
+    print("====TOTAL STATS====")
+    match_times, match_labels, port_nums = list(), list(), list()
+    for video_info in video_info_list:
+        match_times.extend(video_info['match_times'])
+        match_labels.extend(video_info['match_labels'])
+        port_nums.extend(video_info['port_nums'])
+
+    # Time Statistics
+    avg_time = sum(match_times)//len(match_times)
+    print("Average time {:}:{:02d}".format(avg_time//60, avg_time%60))
+
+    # Stage Statistics
+    label_list = ["battlefield", "dreamland", "finaldest",
+        "fountain", "pokemon", "yoshis"]
+    for label in label_list:
+        label_percentage = 100*match_labels.count(label)/len(match_labels)
+        print("Stage {:}: {:.2f}%".format(label, label_percentage))
+
+    # Port Number Statistics
+    for i in [1, 2, 3, 4]:
+        port_percentage = 100*port_nums.count(i)/len(port_nums)
+        print("Port {:}: {:.2f}%".format(i, port_percentage))
 
 
 if __name__ == '__main__':
@@ -68,6 +113,8 @@ if __name__ == '__main__':
         help='A flag used to run the percent matching timeline test.')
     parser.add_argument('-sdt', '--sdt_test_flag', action='store_true',
         help='A flag used to run the stage detection timeline test.')
+    parser.add_argument('-vaf', '--vaf_test_flag', action='store_true',
+        help='A flag used to run the video analyzer folder test.')
 
     # Add CLI arguments for parameters of the various smashscan tests.
     parser.add_argument('-show', '--show_flag', action='store_true',
@@ -100,9 +147,14 @@ if __name__ == '__main__':
             args.stop_fnum, args.show_flag, args.wait_flag)
     elif args.sdt_test_flag:
         capture = cv2.VideoCapture(video_location)
-        sd = stage_detection.StageDetector(capture,
+        tfnet = TFNet(TFNET_OPTIONS)
+        sd = stage_detection.StageDetector(capture, tfnet,
             args.show_flag, args.save_flag)
         sd.standard_test()
+    elif args.vaf_test_flag:
+        run_va_over_video_folder()
     else:
-        va = video_analysis.VideoAnalyzer(video_location, args.show_flag)
+        tfnet = TFNet(TFNET_OPTIONS)
+        va = video_analysis.VideoAnalyzer(video_location,
+            tfnet, args.show_flag)
         va.standard_test()

@@ -1,33 +1,23 @@
 import time
 import numpy as np
 import cv2
-from darkflow.net.build import TFNet
 
 # SmashScan libraries
 import util
 import timeline
-
-TFNET_OPTIONS = {
-    'config': 'cfg',
-    'model': 'cfg/tiny-yolo-voc-6c.cfg',
-    'metaLoad': 'cfg/tiny-yolo-voc-6c.meta',
-    'pbLoad': 'cfg/tiny-yolo-voc-6c.pb',
-    'threshold': 0.25,
-    'gpu': 1.0
-}
 
 LABELS_LIST = ["battlefield", "dreamland", "finaldest",
                "fountain", "pokemon", "yoshis"]
 
 
 # An object that takes a capture and a number of input parameters and performs
-# a number of object detection operations. Parameters include a step_size for
-# the speed of iteration, save_flag for saving results, and show_flag to
-# display results.
+# a number of object detection operations. Parameters include a cv2 capture,
+# darkflow object, save_flag for saving results, and show_flag for display.
 class StageDetector:
 
-    def __init__(self, capture, show_flag=False, save_flag=False):
+    def __init__(self, capture, tfnet, show_flag=False, save_flag=False):
         self.capture = capture
+        self.tfnet = tfnet
         self.save_flag = save_flag
         self.show_flag = show_flag
 
@@ -38,13 +28,6 @@ class StageDetector:
         self.num_match_frames = 5
         self.step_size = 60
         self.timeline_empty_thresh = 4
-
-        # Initialize DarkFlow TFNet object with weights from cfg folder.
-        self.tfnet = TFNet(TFNET_OPTIONS)
-
-
-    def __del__(self):
-        self.tfnet.sess.close()
 
 
     #### STAGE DETECTOR TESTS ##################################################

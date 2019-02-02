@@ -197,31 +197,6 @@ class PercentMatcher:
         return new_match_ranges
 
 
-    # Run the port template test over a video range.
-    def port_test(self, match_ranges, match_bboxes):
-
-        start_time = time.time()
-        for i, match_range in enumerate(match_ranges):
-            random_fnum_list = np.random.randint(low=match_range[0],
-                high=match_range[1], size=self.num_init_frames)
-
-            print(match_range)
-            x_pos_list = list()
-            for fnum in random_fnum_list:
-                frame = util.get_frame(self.capture, fnum, self.gray_flag)
-                conf_list, bbox_list = self.get_tm_results(frame, 4)
-                for bbox in bbox_list:
-                    x_pos_list.append(bbox[0][0])
-                print((fnum, conf_list, bbox_list))
-
-            port_pos_list = position_tools.get_port_pos_list(x_pos_list)
-            port_num_list = position_tools.get_port_num_list(
-                port_pos_list, match_bboxes[i])
-            print(port_num_list)
-
-        util.display_total_time(start_time, "Port Sweep")
-
-
     #### PERCENT MATCHER HELPER METHODS #######################################
 
     # Given a frame, return a confidence list and bounding box list.
@@ -429,6 +404,59 @@ class PercentMatcher:
                 pct_timeline.append(-1)
 
         return pct_timeline
+
+
+    #### PERCENT MATCHER EXTERNAL METHODS #####################################
+
+    # Run the timeline template test over a video range.
+    def get_match_ranges(self):
+
+        # Use a random number of frames to calibrate the percent template size.
+        self.initialize_template_scale()
+
+        # Iterate through the video to identify when percent is present.
+        pct_timeline = self.get_pct_timeline()
+
+        # Fill holes in the history timeline list, and filter out timeline
+        # sections that are smaller than a particular size.
+        clean_timeline = timeline.fill_filter(pct_timeline,
+            self.timeline_empty_thresh)
+        clean_timeline = timeline.size_filter(clean_timeline,
+            self.step_size, self.min_match_length_s)
+
+        # Display the frames associated with the calculated match ranges.
+        timeline_ranges = timeline.get_ranges(clean_timeline)
+        match_ranges = np.multiply(timeline_ranges, self.step_size)
+
+        # Display the frames associated with the precise match ranges.
+        new_match_ranges = self.get_precise_match_ranges(match_ranges)
+        return new_match_ranges.tolist()
+
+
+    # Given a list of match ranges and bboxes, return the ports in use.
+    def get_port_num_list(self, match_ranges, match_bboxes):
+
+        start_time = time.time()
+        for i, match_range in enumerate(match_ranges):
+            random_fnum_list = np.random.randint(low=match_range[0],
+                high=match_range[1], size=self.num_init_frames)
+
+            # print(match_range)
+            x_pos_list = list()
+            for fnum in random_fnum_list:
+                frame = util.get_frame(self.capture, fnum, self.gray_flag)
+                _, bbox_list = self.get_tm_results(frame, 4)
+                for bbox in bbox_list:
+                    x_pos_list.append(bbox[0][0])
+                # print((fnum, conf_list, bbox_list))
+
+            port_pos_list = position_tools.get_port_pos_list(x_pos_list)
+            port_num_list = position_tools.get_port_num_list(
+                port_pos_list, match_bboxes[i])
+            # print(port_num_list)
+
+        util.display_total_time(start_time, "Port Sweep")
+        return port_num_list
 
 
 #### Functions not inherent by PercentMatcher Object ##########################
