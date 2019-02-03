@@ -12,7 +12,8 @@ def get_frame(capture, frame_num, gray_flag=False):
 
 
 # Given a frame and additional parameters, display a frame.
-def show_frame(frame, bbox_list=None, text=None, wait_flag=False):
+def show_frame(frame, bbox_list=None, 
+    text=None, save_flag=False, save_name=None, wait_flag=False):
 
     # A list of colors to indicate the order of bounding boxes drawn.
     color_list = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]]
@@ -27,11 +28,9 @@ def show_frame(frame, bbox_list=None, text=None, wait_flag=False):
             tl, br = bbox[0], bbox[1]
             frame = cv2.rectangle(frame, tl, br, color_list[i], 4)
 
-    # Draw a text box, if a text string was given.
+    # Draw a text box, if a text string given. Add rectangle to emphasize text.
     if text:
-        # Add a white rectangle to the frame to emphasize text.
-        tbox_tl = (0, 0)
-        tbox_br = (tbox_tl[0] + 220, tbox_tl[1] + 25)
+        tbox_tl, tbox_br = (0, 0), (220, 25)
         frame = cv2.rectangle(frame, tbox_tl, tbox_br, (255, 255, 255), -1)
 
         # Add the text on top of the rectangle to the displayed frame. The
@@ -44,6 +43,10 @@ def show_frame(frame, bbox_list=None, text=None, wait_flag=False):
     cv2.imshow('frame', frame)
     if wait_flag:
         cv2.waitKey(0)
+
+    # Save the frame if the save_flag is enabled.
+    if save_flag:
+        cv2.imwrite(save_name, frame)
 
 
 # Given a list of frame numbers, display each frame. An optional flag exists

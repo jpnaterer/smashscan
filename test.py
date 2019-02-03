@@ -21,7 +21,7 @@ TFNET_OPTIONS = {
 
 # Run the PM test over a wide range of input parameters.
 def run_all_pm_tests(test_type_str, video_location,
-    start_fnum, stop_fnum, show_flag, wait_flag):
+    start_fnum, stop_fnum, save_flag, show_flag, wait_flag):
 
     # Create a capture object and set the stop frame number if none was given.
     capture = cv2.VideoCapture(video_location)
@@ -29,14 +29,14 @@ def run_all_pm_tests(test_type_str, video_location,
         stop_fnum = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # Run the PM test with grayscale and non-grayscale parameters.
-    for gray_flag in [False, True]:
+    for gray_flag in [True, False]:
 
         # Display the flags used for the current PM test.
         print("==== Percent Matching Test ====")
         print("\tgray_flag={}".format(gray_flag))
         print("\tshow_flag={}".format(show_flag))
-        pm = percent_matching.PercentMatcher(capture,
-            [start_fnum, stop_fnum], gray_flag, show_flag, wait_flag)
+        pm = percent_matching.PercentMatcher(capture, [start_fnum, stop_fnum],
+            gray_flag, save_flag, show_flag, wait_flag)
 
         # Run the PM test according to the input test_type_str.
         if test_type_str == "pms":
@@ -135,16 +135,16 @@ if __name__ == '__main__':
     # Run the smashscan test indicated by the input flags (tfnet by default).
     if args.pms_test_flag:
         run_all_pm_tests("pms", video_location, args.start_fnum,
-            args.stop_fnum, args.show_flag, args.wait_flag)
+            args.stop_fnum, args.save_flag, args.show_flag, args.wait_flag)
     elif args.pmc_test_flag:
         run_all_pm_tests("pmc", video_location, args.start_fnum,
-            args.stop_fnum, args.show_flag, args.wait_flag)
+            args.stop_fnum, args.save_flag, args.show_flag, args.wait_flag)
     elif args.pmi_test_flag:
         run_all_pm_tests("pmi", video_location, args.start_fnum,
-            args.stop_fnum, args.show_flag, args.wait_flag)
+            args.stop_fnum, args.save_flag, args.show_flag, args.wait_flag)
     elif args.pmt_test_flag:
         run_all_pm_tests("pmt", video_location, args.start_fnum,
-            args.stop_fnum, args.show_flag, args.wait_flag)
+            args.stop_fnum, args.save_flag, args.show_flag, args.wait_flag)
     elif args.sdt_test_flag:
         capture = cv2.VideoCapture(video_location)
         tfnet = TFNet(TFNET_OPTIONS)

@@ -8,33 +8,35 @@ import timeline
 import util
 
 # An object that takes a capture and a number of input parameters and performs
-# a number of template matching operations. Parameters include a step_size for
-# the speed of iteration, frame_range for the range of frame numbers to be
-# surveyed, gray_flag for a grayscale or BGR analysis, show_flag which displays
-# results with cv2.imshow(), and wait_flag which waits between frames.
+# a number of template matching operations. Parameters include a frame_range
+# for the range of frame numbers to be urveyed, gray_flag for a grayscale or
+# BGR analysis, show_flag which displays results with cv2.imshow(), and
+# wait_flag which waits between frames.
 class PercentMatcher:
 
     def __init__(self, capture, frame_range=None,
-        gray_flag=True, show_flag=False, wait_flag=False):
+        gray_flag=True, save_flag=False, show_flag=False, wait_flag=False):
 
         self.capture = capture
         self.gray_flag = gray_flag
+        self.save_flag = save_flag
         self.show_flag = show_flag
 
         # Predetermined parameters that have been tested to work best.
-        self.calib_w_range = (24, 30)
-        self.conf_thresh = 0.8
-        self.min_match_length_s = 30
-        self.num_init_frames = 30
-        self.prec_step_size = 2
-        self.prec_step_threshold = 4
-        self.roi_y_tolerance = 3
-        self.step_size = 60
-        self.template_match_radius = 2
-        self.timeline_empty_thresh = 4
+        self.calib_w_range = (24, 30) # The possible template width values.
+        self.conf_thresh = 0.8        # The cv2 Template Matching conf thresh.
+        self.min_match_length_s = 30  # Minimum time of a "match" in seconds.
+        self.num_init_frames = 30     # # of frames to init. template size.
+        self.num_port_frames = 30     # # of frames to find port each match.
+        self.prec_step_size = 2       # Fnum step size during precision sweep.
+        self.max_prec_tl_gap_size = 4 # Max size of precise t.l. gaps to fill.
+        self.max_tl_gap_size = 4      # Max size of timeline gaps to fill.
+        self.roi_y_tolerance = 3      # The size to expand the ROI y-dimensons.
+        self.step_size = 60           # Frame number step size during sweep.
+        self.template_zero_radius = 2 # Size of match_mat subregion to zero.
 
         # Paramaters that are redefined later on during initialization.
-        self.template_roi = None
+        self.template_roi = None      # A bounding box to search for templates.
 
         # Set the start/stop frame to the full video if frame_range undefined.
         if frame_range:
@@ -57,7 +59,7 @@ class PercentMatcher:
             self.orig_pct_img, self.orig_pct_mask, 360/480)
 
 
-    #### PERCENT MATCHER TESTS ################################################
+    #### PERCENT MATCHER TESTS #################################################
 
     # 1. The PM Sweep Test iterates over the entire video, searching for four
     # default sized percent sprites within each frame.
@@ -70,11 +72,12 @@ class PercentMatcher:
             frame = util.get_frame(self.capture, fnum, self.gray_flag)
             confidence_list, bbox_list = self.get_tm_results(frame, 4, 0)
 
-            # Display frame with a confidence label if show_flag is enabled.
+            # Display and save frame if the respective flags are enabled.
             if self.show_flag:
                 label_list = ["{:0.3f}".format(i) for i in confidence_list]
                 label = " ".join(label_list)
-                util.show_frame(frame, bbox_list, text=label)
+                util.show_frame(frame, bbox_list, label,
+                    self.save_flag, "output/{:07d}.png".format(fnum))
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
 
@@ -104,7 +107,8 @@ class PercentMatcher:
             if self.show_flag:
                 label = "({}, {}) {:0.3f} -> {:0.3f}".format(
                     opt_w, opt_h, orig_conf_list[0], opt_conf)
-                util.show_frame(frame, bbox_list=[bbox], text=label)
+                util.show_frame(frame, [bbox], label,
+                    self.save_flag, "output/{:07d}.png".format(fnum))
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
 
@@ -141,7 +145,8 @@ class PercentMatcher:
                 orig_conf_list, _ = self.get_tm_results(frame, 1, 0)
                 label = "({}, {}) {:0.3f} -> {:0.3f}".format(
                     opt_w, opt_h, orig_conf_list[0], opt_conf)
-                util.show_frame(frame, bbox_list=[bbox], text=label)
+                util.show_frame(frame, [bbox], label,
+                    self.save_flag, "output/{:07d}.png".format(random_fnum))
                 if cv2.waitKey(self.wait_length) & 0xFF == ord('q'):
                     break
 
@@ -174,7 +179,7 @@ class PercentMatcher:
         # Fill holes in the history timeline list, and filter out timeline
         # sections that are smaller than a particular size.
         clean_timeline = timeline.fill_filter(pct_timeline,
-            self.timeline_empty_thresh)
+            self.max_tl_gap_size)
         clean_timeline = timeline.size_filter(clean_timeline,
             self.step_size, self.min_match_length_s)
         if self.show_flag:
@@ -252,7 +257,7 @@ class PercentMatcher:
         for i in range(0, num_results):
             _, max_val, _, top_left = cv2.minMaxLoc(match_mat)
             set_subregion_to_zeros(match_mat, match_mat_dims,
-                top_left, radius=self.template_match_radius)
+                top_left, radius=self.template_zero_radius)
             max_val_list.append(max_val)
             top_left_list.append(top_left)
 
@@ -314,12 +319,12 @@ class PercentMatcher:
     # interest bounding box, that covers a horizontal line over the entire 360p
     # frame. The bounding box must not surpass the boundaries of the frame.
     def get_opt_template_roi(self, bbox_list):
-        tol, y_min_list, y_max_list = self.roi_y_tolerance, list(), list()
+        y_min_list, y_max_list = list(), list()
         for bbox in bbox_list:
             y_min_list.append(bbox[0][1])
             y_max_list.append(bbox[1][1])
-        y_min = max(0, min(y_min_list)-tol)
-        y_max = min(359, max(y_max_list)+tol)
+        y_min = max(0, min(y_min_list) - self.roi_y_tolerance)
+        y_max = min(359, max(y_max_list) + self.roi_y_tolerance)
         return ((0, y_min), (639, y_max))
 
 
@@ -355,7 +360,6 @@ class PercentMatcher:
 
     #### PERCENT MATCHER TIMELINE METHODS ######################################
 
-
     # Iterate through the video to identify when the percent sprite is present.
     def get_pct_timeline(self):
 
@@ -388,8 +392,9 @@ class PercentMatcher:
             else:
                 current_step_size = self.prec_step_size
 
+            # Iterate through the video using fnum until no percent has been
+            # found for a specified number of frames.
             while True:
-                # Obtain the frame and get the pct confidences and locations.
                 frame = util.get_frame(self.capture, fnum, self.gray_flag)
                 confidence_list, _ = self.get_tm_results(frame, 1)
 
@@ -400,7 +405,7 @@ class PercentMatcher:
                     prec_counter += 1
 
                 # Exit if there has been no percent found over multiple frames.
-                if prec_counter == self.prec_step_threshold:
+                if prec_counter == self.max_prec_tl_gap_size:
                     prec_match_ranges_flat.append(
                         fnum - current_step_size*(prec_counter+1))
                     break
@@ -427,7 +432,7 @@ class PercentMatcher:
         # Fill holes in the history timeline list, and filter out timeline
         # sections that are smaller than a particular size.
         clean_timeline = timeline.fill_filter(pct_timeline,
-            self.timeline_empty_thresh)
+            self.max_tl_gap_size)
         clean_timeline = timeline.size_filter(clean_timeline,
             self.step_size, self.min_match_length_s)
 
@@ -446,7 +451,7 @@ class PercentMatcher:
         start_time = time.time()
         for i, match_range in enumerate(match_ranges):
             random_fnum_list = np.random.randint(low=match_range[0],
-                high=match_range[1], size=self.num_init_frames)
+                high=match_range[1], size=self.num_port_frames)
 
             # print(match_range)
             x_pos_list = list()
