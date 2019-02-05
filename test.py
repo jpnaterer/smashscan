@@ -1,4 +1,5 @@
 import argparse
+import time
 import os
 import cv2
 from darkflow.net.build import TFNet
@@ -6,6 +7,7 @@ from darkflow.net.build import TFNet
 # SmashScan libraries
 import stage_detection
 import percent_matching
+import util
 import video_analysis
 
 # Darkflow/Tensorflow default settings:
@@ -56,6 +58,7 @@ def run_all_pm_tests(test_type_str, video_location,
 def run_va_over_video_folder():
 
     # Create a single darkflow object to be reused by each video analyzer.
+    start_total_time = time.time()
     tfnet = TFNet(TFNET_OPTIONS)
     video_info_list = list()
 
@@ -93,6 +96,8 @@ def run_va_over_video_folder():
     for i in [1, 2, 3, 4]:
         port_percentage = 100*port_nums.count(i)/len(port_nums)
         print("Port {:}: {:.2f}%".format(i, port_percentage))
+
+    util.display_total_time(start_total_time, "TOTAL")
 
 
 if __name__ == '__main__':

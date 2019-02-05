@@ -25,7 +25,7 @@ class PercentMatcher:
         # Predetermined parameters that have been tested to work best.
         self.calib_w_range = (24, 30) # The possible template width values.
         self.conf_thresh = 0.8        # The cv2 Template Matching conf thresh.
-        self.min_match_length_s = 30  # Minimum time of a "match" in seconds.
+        self.min_match_length_s = 35  # Minimum time of a "match" in seconds.
         self.num_init_frames = 30     # # of frames to init. template size.
         self.num_port_frames = 30     # # of frames to find port each match.
         self.prec_step_size = 2       # Fnum step size during precision sweep.
@@ -409,7 +409,7 @@ class PercentMatcher:
                     prec_match_ranges_flat.append(
                         fnum - current_step_size*(prec_counter+1))
                     break
-                elif fnum == 0 or fnum == self.stop_fnum:
+                elif fnum == 0 or fnum >= self.stop_fnum - self.prec_step_size:
                     prec_match_ranges_flat.append(fnum)
                     break
                 fnum = fnum + current_step_size
