@@ -127,14 +127,36 @@ class StageDetector:
         return match_bboxes
 
 
+    # Given a list of predicted labels, determine the label that accurately
+    # represents the match. If there is too much variance or no label was found
+    # assume that a highlight reel or poor quality stream was given.
+    def get_match_label(self, label_list, match_range):
+
+        # If no stages were found, return and declare a failure.
+        if not label_list:
+            print("\tUnidentifiable Match Range: {}".format(match_range))
+            return None
+
+        # If there is too much variance (multiple labels found), return.
+        if len(set(label_list)) > 1:
+            print("\tRemoved Match Range: {}".format(match_range))
+            return "multiple_stages_found"
+
+        # Find the label that occured the most during the tested frames.
+        match_label = max(set(label_list), key=label_list.count)
+        return match_label
+
+
     #### STAGE DETECTOR EXTERNAL METHODS #######################################
 
     # Given a list of match ranges, randomly select frames from each range and
-    # return the average bounding box and expected label for each match.
-    def get_match_bboxes_and_labels(self, match_ranges):
+    # return the average bounding box and expected label for each match. Also
+    # return an updated list of the match ranges, with matches removed where
+    # multiple stages were found, aka highlight reels.
+    def get_match_info(self, match_ranges):
 
         # For each match range, generated random frame numbers to search.
-        match_bboxes, match_labels = list(), list()
+        new_match_ranges, match_bboxes, match_labels = list(), list(), list()
         for match_range in match_ranges:
             random_fnum_list = np.random.randint(low=match_range[0],
                 high=match_range[1], size=self.num_match_frames)
@@ -160,14 +182,15 @@ class StageDetector:
                         bbox_list, label_list = [bbox], [label]
                         break
 
-            # If no stages were found again, return and declare a failure.
-            if not label_list:
-                print("\tUnidentifiable Match Range: {}".format(match_range))
+            # Find the label that occured the most during the tested frames. If
+            # zero or multiple stages were found, declare failure.
+            match_label = self.get_match_label(label_list, match_range)
+            if match_label is None:
                 return None, None
-
-            # Find the label that occured the most during the tested frames.
-            match_label = max(set(label_list), key=label_list.count)
+            if match_label == "multiple_stages_found":
+                continue
+            new_match_ranges.append(match_range)
             match_bboxes.append(util.get_avg_bbox(bbox_list))
             match_labels.append(match_label)
 
-        return match_bboxes, match_labels
+        return new_match_ranges, match_bboxes, match_labels

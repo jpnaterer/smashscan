@@ -25,25 +25,24 @@ class VideoAnalyzer:
         start_time = time.time()
         match_ranges = self.pm.get_match_ranges()
         util.display_total_time(start_time, "Percent Matching")
-        print("\tMatch Ranges: {:}".format(match_ranges))
-        match_times = [(mr[1]-mr[0])//30 for mr in match_ranges]
-        print("\tMatch Times: {:}".format(match_times))
 
         # Use the Stage Detector to determine the match bboxes and labels and
         # exit if a stage was not found within any of the match ranges.
         start_time = time.time()
-        match_bboxes, match_labels = \
-            self.sd.get_match_bboxes_and_labels(match_ranges)
+        new_match_ranges, match_bboxes, match_labels = \
+            self.sd.get_match_info(match_ranges)
         if match_labels:
             util.display_total_time(start_time, "Stage Detection")
             print("\tMatch Bboxes: {:}".format(match_bboxes))
             print("\tMatch Labels: {:}".format(match_labels))
+            match_times = [(mr[1]-mr[0])//30 for mr in new_match_ranges]
+            print("\tMatch Times: {:}".format(match_times))
         else:
             print("\tNo stage detected!")
             return False
 
         # Use the Percent Matcher to get an estimate of the ports in use.
-        port_nums = self.pm.get_port_num_list(match_ranges, match_bboxes)
+        port_nums = self.pm.get_port_num_list(new_match_ranges, match_bboxes)
         print("\tPorts in Use: {:}".format(port_nums))
 
         # Create a dict to return the relevant video info.

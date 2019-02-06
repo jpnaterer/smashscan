@@ -83,7 +83,7 @@ def run_va_over_video_folder():
 
     # Time Statistics
     avg_time = sum(match_times)//len(match_times)
-    print("Average time {:}:{:02d}".format(avg_time//60, avg_time%60))
+    print("Average match time {:}:{:02d}".format(avg_time//60, avg_time%60))
 
     # Stage Statistics
     label_list = ["battlefield", "dreamland", "finaldest",
@@ -97,7 +97,7 @@ def run_va_over_video_folder():
         port_percentage = 100*port_nums.count(i)/len(port_nums)
         print("Port {:}: {:.2f}%".format(i, port_percentage))
 
-    util.display_total_time(start_total_time, "TOTAL")
+    util.display_total_time(start_total_time, "Analyze")
 
 
 if __name__ == '__main__':
