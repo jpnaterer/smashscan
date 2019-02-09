@@ -42,7 +42,9 @@ class VideoAnalyzer:
             return False
 
         # Use the Percent Matcher to get an estimate of the ports in use.
+        start_time = time.time()
         port_nums = self.pm.get_port_num_list(new_match_ranges, match_bboxes)
+        util.display_total_time(start_time, "Port Sweep")
         print("\tPorts in Use: {:}".format(port_nums))
 
         # Create a dict to return the relevant video info.

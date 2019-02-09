@@ -27,7 +27,7 @@ class PercentMatcher:
         self.conf_thresh = 0.8        # The cv2 Template Matching conf thresh.
         self.min_match_length_s = 30  # Minimum time of a "match" in seconds.
         self.num_init_frames = 30     # # of frames to init. template size.
-        self.num_port_frames = 30     # # of frames to find port each match.
+        self.num_port_frames = 20     # # of frames to find port each match.
         self.prec_step_size = 2       # Fnum step size during precision sweep.
         self.max_prec_tl_gap_size = 4 # Max size of precise t.l. gaps to fill.
         self.max_tl_gap_size = 4      # Max size of timeline gaps to fill.
@@ -448,26 +448,23 @@ class PercentMatcher:
     # Given a list of match ranges and bboxes, return the ports in use.
     def get_port_num_list(self, match_ranges, match_bboxes):
 
-        start_time = time.time()
+        # Iterate over all matches, and generate random frame nums to check.
         for i, match_range in enumerate(match_ranges):
             random_fnum_list = np.random.randint(low=match_range[0],
                 high=match_range[1], size=self.num_port_frames)
 
-            # print(match_range)
+            # Iterate over the random frames, and store percent x-positions.
             x_pos_list = list()
             for fnum in random_fnum_list:
                 frame = util.get_frame(self.capture, fnum, self.gray_flag)
                 _, bbox_list = self.get_tm_results(frame, 4)
                 for bbox in bbox_list:
                     x_pos_list.append(bbox[0][0])
-                # print((fnum, conf_list, bbox_list))
 
             port_pos_list = position_tools.get_port_pos_list(x_pos_list)
             port_num_list = position_tools.get_port_num_list(
                 port_pos_list, match_bboxes[i])
-            # print(port_num_list)
 
-        util.display_total_time(start_time, "Port Sweep")
         return port_num_list
 
 
