@@ -446,9 +446,10 @@ class PercentMatcher:
 
 
     # Given a list of match ranges and bboxes, return the ports in use.
-    def get_port_num_list(self, match_ranges, match_bboxes):
+    def get_match_ports(self, match_ranges, match_bboxes):
 
         # Iterate over all matches, and generate random frame nums to check.
+        match_ports = list()
         for i, match_range in enumerate(match_ranges):
             random_fnum_list = np.random.randint(low=match_range[0],
                 high=match_range[1], size=self.num_port_frames)
@@ -461,11 +462,13 @@ class PercentMatcher:
                 for bbox in bbox_list:
                     x_pos_list.append(bbox[0][0])
 
+            # Get the ports used for current match and append to total list.
             port_pos_list = position_tools.get_port_pos_list(x_pos_list)
             port_num_list = position_tools.get_port_num_list(
                 port_pos_list, match_bboxes[i])
+            match_ports.append(port_num_list)
 
-        return port_num_list
+        return match_ports
 
 
 #### Functions not inherent by PercentMatcher Object ##########################

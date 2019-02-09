@@ -65,7 +65,7 @@ def run_va_over_video_folder():
     # Perform video analysis over all the videos in the video directory.
     for file_name in os.listdir('videos'):
 
-        # Skip the files that do not contain a .mp4 extension
+        # Skip the files that do not contain a .mp4 extension.
         if "mp4" not in file_name:
             continue
         video_location = "{:s}/{:s}".format('videos', file_name)
@@ -75,26 +75,26 @@ def run_va_over_video_folder():
 
     # Calculate the overall video statistics
     print("====TOTAL STATS====")
-    match_times, match_labels, port_nums = list(), list(), list()
+    match_times, match_labels, match_ports = list(), list(), list()
     for video_info in video_info_list:
         match_times.extend(video_info['match_times'])
         match_labels.extend(video_info['match_labels'])
-        port_nums.extend(video_info['port_nums'])
+        match_ports.extend([j for i in video_info['match_ports'] for j in i])
 
-    # Time Statistics
+    # Calculate time statistics.
     avg_time = sum(match_times)//len(match_times)
     print("Average match time {:}:{:02d}".format(avg_time//60, avg_time%60))
 
-    # Stage Statistics
+    # Calculate stage statistics.
     label_list = ["battlefield", "dreamland", "finaldest",
         "fountain", "pokemon", "yoshis"]
     for label in label_list:
         label_percentage = 100*match_labels.count(label)/len(match_labels)
         print("Stage {:}: {:.2f}%".format(label, label_percentage))
 
-    # Port Number Statistics
+    # Calculate port number statistics.
     for i in [1, 2, 3, 4]:
-        port_percentage = 100*port_nums.count(i)/len(port_nums)
+        port_percentage = 100*match_ports.count(i)/len(match_ports)
         print("Port {:}: {:.2f}%".format(i, port_percentage))
 
     util.display_total_time(start_total_time, "Analyze")

@@ -41,8 +41,8 @@ class StageDetector:
 
         # Iterate through video and use tfnet to perform object detection.
         start_time = time.time()
-        for current_frame in range(0, self.end_fnum, self.step_size):
-            self.capture.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
+        for fnum in range(0, self.end_fnum, self.step_size):
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, fnum)
             _, frame = self.capture.read()
 
             # Get the tfnet result with the largest confidence and extract info.
@@ -60,15 +60,14 @@ class StageDetector:
             if self.show_flag:
                 if confidence:
                     text = '{}: {:.0f}%'.format(label, confidence * 100)
-                    util.show_frame(frame, bbox_list=[bbox], text=text)
+                    util.show_frame(frame, bbox_list=[bbox], text=text,
+                        save_flag=self.save_flag, 
+                        save_name="output/{:07d}.png".format(fnum))
                 else:
-                    util.show_frame(frame)
+                    util.show_frame(frame, save_flag=self.save_flag,
+                        save_name="output/{:07d}.png".format(fnum))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-
-            # Save the frame if the save_flag is enabled.
-            if self.save_flag:
-                cv2.imwrite('output/frame%07d.png' % current_frame, frame)
 
         # End the TfNet session and display time taken to complete.
         util.display_fps(start_time, len(dirty_timeline), "Initial Sweep")
