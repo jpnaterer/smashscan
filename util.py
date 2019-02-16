@@ -16,7 +16,9 @@ def show_frame(frame, bbox_list=None, text=None,
     save_flag=False, save_name=None, wait_flag=False):
 
     # A list of colors to indicate the order of bounding boxes drawn.
-    color_list = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]]
+    color_list = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0],
+        [255, 0, 255], [0, 255, 255]]
+    color_list = color_list + [255, 255, 255]*20
 
     # Convert the frame to a BGR image if the input is grayscale.
     if len(frame.shape) == 2:
@@ -93,7 +95,7 @@ def get_avg_bbox(bbox_list):
 # Display the total time taken of a test procedure.
 def display_total_time(start_time, title=""):
     stop_time = time.time() - start_time
-    print("\tTotal {:} Time: {:.2f}s".format(title, stop_time))
+    print("\tTotal {:} Time: {:.5f}s".format(title, stop_time))
 
 
 # Display the total time taken and average FPS of a test procedure.
