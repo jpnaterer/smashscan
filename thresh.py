@@ -81,8 +81,8 @@ cv2.createTrackbar(high_V_name, window_detection_name,
     high_V, max_value, on_high_V_thresh_trackbar)
 
 img = cv2.imread('videos/test8.png')
-cap = cv2.VideoCapture("videos/goml999.mp4")
-cap.set(cv2.CAP_PROP_POS_FRAMES, 47000)
+cap = cv2.VideoCapture("videos/tbh1.mp4")
+cap.set(cv2.CAP_PROP_POS_FRAMES, 6000)
 
 # https://docs.opencv.org/3.4.5/da/d97/tutorial_threshold_inRange.html
 while True:
@@ -101,14 +101,13 @@ while True:
     #blur = cv2.medianBlur(img, 5)
     #blur = cv2.bilateralFilter(img, 9, 75, 75)
 
-
-    cv2.imshow('Video Capture', frame)
+    # cv2.imshow('Video Capture', frame)
     cv2.imshow(window_detection_name, mask)
     cv2.imshow('Video Capture AND', res)
     cv2.imshow('Video Capture INV', res_inv)
     cv2.imshow('Video Capture Blur AND', blur)
     cv2.imshow('Video Capture Blur INV', blur_inv)
 
-    key = cv2.waitKey(30)
+    key = cv2.waitKey(100)
     if key == ord('q') or key == 27:
         break
