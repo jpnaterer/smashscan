@@ -5,8 +5,9 @@ import cv2
 from darkflow.net.build import TFNet
 
 # SmashScan libraries
-import stage_detection
 import percent_matching
+import stage_detection
+import thresholding
 import util
 import video_analysis
 
@@ -120,6 +121,8 @@ if __name__ == '__main__':
         help='A flag used to run the stage detection timeline test.')
     parser.add_argument('-vaf', '--vaf_test_flag', action='store_true',
         help='A flag used to run the video analyzer folder test.')
+    parser.add_argument('-fth', '--fth_test_flag', action='store_true',
+        help='A flag used to run the frame thresholding test.')
 
     # Add CLI arguments for parameters of the various smashscan tests.
     parser.add_argument('-show', '--show_flag', action='store_true',
@@ -158,6 +161,9 @@ if __name__ == '__main__':
         sd.standard_test()
     elif args.vaf_test_flag:
         run_va_over_video_folder()
+    elif args.fth_test_flag:
+        ft = thresholding.FrameThresholder(video_location, args.start_fnum)
+        ft.standard_test()
     else:
         tfnet = TFNet(TFNET_OPTIONS)
         va = video_analysis.VideoAnalyzer(video_location,
