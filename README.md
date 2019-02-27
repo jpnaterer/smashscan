@@ -4,14 +4,16 @@ This project is intended to perform video analysis on pre-recorded footage of th
 
 ## TODO List
 If you are interested in helping out, join this repository's [Slack](https://join.slack.com/t/smashscan/shared_invite/enQtNDE5MjA5OTI0NDgwLTYwNGNkOWFmZjRjYjkwNDRkNzMzZGJjZjQwZTY5Y2YwZDhmNDJiYzEyZjk1OWJmMmU2YzYzNjRjMTIzYmM2YTI) and send a message.
-+ Research ways to detect the percent counter (Either template matching, feature matching, or neural networks)
++ Research ways to detect the percent counter (Either template matching, OCR, or neural networks)
 + Research ways to detect stock icons (Either template matching, feature matching, or neural networks)
-+ Research ways to detect the timer (Either template matching, feature matching, or neural networks)
++ Research ways to detect the timer (Either template matching, OCR, or neural networks)
 + Add additional game capabilities (SSB64, SSB4, PM, Rivals)
 
 ### Milestones
 1. [Train a neural network (DarkNet) to search for the six legal SSBM stages, regardless of a stream overlay.](https://medium.com/@seft/smashscan-using-neural-networks-to-analyze-super-smash-bros-melee-a7d0ab5c0755)
 2. [Improve video download speed and create a stage-timeline object to represent SSBM matches.](https://medium.com/@seft/smashscan-using-neural-networks-to-analyze-super-smash-bros-melee-part-2-b13ecfbf4e0d)
+3. [Added non-stage training data to significantly improve stage-detection results.](https://medium.com/@seft/smashscan-using-neural-networks-to-analyze-super-smash-bros-melee-part-3-e057f07b79ff)
+4. [Added percent template matching to segment the video for quicker stage-detection.](https://medium.com/@seft/smashscan-using-neural-networks-to-analyze-super-smash-bros-melee-part-4-78732b46a900)
 
 ## Instalation Guide
 1. Create a Python 3.6 environment (required by tensorflow) locally or in a conda environment. Install the following python packages; The version numbers are not necessarily required, I just provided them as a reference for when I wrote this guide: numpy (1.11.0), matplotlib (1.5.1), cython (0.28.5), opencv-python (3.4.2.17), youtube-dl (2018.8.22 - 2018 version much faster than 2015-2017).
@@ -31,17 +33,10 @@ Obtain the YouTube video-id for the video you wish to test on. The video-id is t
 python download.py dQw4w9WgXcQ example-video-name.mp4
 ```
 
-Use `test.py` to draw bounding boxes on the video. This uses the pre-trained weights in the `cfg` folder.
+Use `test.py` to draw bounding boxes on the video. This uses the pre-trained weights (.pb) in the `cfg` folder.
 
 ``` bash
 python test.py example-video-name.mp4
-
-# To output example frames (.png's), add the save flag.
-python test.py example-video-name.mp4 -save
-
-# If you have imagemagick installed, create a .gif with the following command.
-cd output
-convert -delay 5 -loop 0 *.png Darkflow_SSBM_v1.gif
 ```
 
 
