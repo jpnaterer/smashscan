@@ -43,7 +43,9 @@ def show_ocr_result(frame):
     util.show_frame(frame, bbox_list=bbox_list, wait_flag=True)
 
 
-def ocr_test(img, hsv_flag, inv_flag, gau_flag):
+def ocr_test(img, hsv_flag, avg_flag=False, gau_flag=False,
+    med_flag=False, bil_flag=False, inv_flag=True):
+
     # cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -54,32 +56,59 @@ def ocr_test(img, hsv_flag, inv_flag, gau_flag):
     else:
         result_img = img_gray
 
+    # https://docs.opencv.org/3.4.5/d4/d13/tutorial_py_filtering.html
+    if avg_flag:
+        result_img = cv2.blur(result_img, (5, 5))
+    elif gau_flag:
+        result_img = cv2.GaussianBlur(result_img, (5, 5), 0)
+    elif med_flag:
+        result_img = cv2.medianBlur(result_img, 5)
+    elif bil_flag:
+        result_img = cv2.bilateralFilter(result_img, 9, 75, 75)
+
     if inv_flag:
         result_img = cv2.bitwise_not(result_img)
-    if gau_flag:
-        result_img = cv2.GaussianBlur(result_img, (5, 5), 0)
 
-    print("hsv_flag={}".format(inv_flag))
-    print("inv_flag={}".format(inv_flag))
-    print("gau_flag={}".format(gau_flag))
+    display_ocr_test_flags(hsv_flag, avg_flag, gau_flag,
+        med_flag, bil_flag, inv_flag)
     show_ocr_result(result_img)
+
+
+# Display the OCR test flags in a structured format.
+def display_ocr_test_flags(hsv_flag, avg_flag, gau_flag,
+    med_flag, bil_flag, inv_flag):
+    print("hsv_flag={}".format(hsv_flag))
+
+    if avg_flag:
+        print("avg_flag={}".format(avg_flag))
+    elif gau_flag:
+        print("gau_flag={}".format(gau_flag))
+    elif med_flag:
+        print("med_flag={}".format(med_flag))
+    elif bil_flag:
+        print("bil_flag={}".format(bil_flag))
+
+    print("inv_flag={}".format(inv_flag))
 
 
 capture = cv2.VideoCapture("videos/g6_1.mp4")
 frame = util.get_frame(capture, 1000)
 
-img = cv2.imread('videos/test6.png', cv2.IMREAD_GRAYSCALE)
+img = cv2.imread('videos/test5.png', cv2.IMREAD_GRAYSCALE)
 show_ocr_result(img)
 
-img2 = cv2.imread('videos/test6.png', cv2.IMREAD_COLOR)
-ocr_test(img2, hsv_flag=True, inv_flag=False, gau_flag=False)
-ocr_test(img2, hsv_flag=True, inv_flag=True, gau_flag=False)
-ocr_test(img2, hsv_flag=True, inv_flag=False, gau_flag=True)
-ocr_test(img2, hsv_flag=True, inv_flag=True, gau_flag=True)
-ocr_test(img2, hsv_flag=False, inv_flag=False, gau_flag=False)
-ocr_test(img2, hsv_flag=False, inv_flag=True, gau_flag=False)
-ocr_test(img2, hsv_flag=False, inv_flag=False, gau_flag=True)
-ocr_test(img2, hsv_flag=False, inv_flag=True, gau_flag=True)
+img2 = cv2.imread('videos/test5.png', cv2.IMREAD_COLOR)
+ocr_test(img2, hsv_flag=False)
+ocr_test(img2, hsv_flag=False, avg_flag=True)
+ocr_test(img2, hsv_flag=False, gau_flag=True)
+ocr_test(img2, hsv_flag=False, med_flag=True)
+ocr_test(img2, hsv_flag=False, bil_flag=True)
+
+ocr_test(img2, hsv_flag=True)
+ocr_test(img2, hsv_flag=True, avg_flag=True)
+ocr_test(img2, hsv_flag=True, gau_flag=True)
+ocr_test(img2, hsv_flag=True, med_flag=True)
+ocr_test(img2, hsv_flag=True, bil_flag=True)
 
 # https://docs.opencv.org/3.4.5/d7/d4d/tutorial_py_thresholding.html
 print("thresh")
@@ -96,20 +125,3 @@ print("bluradaothresh")
 blur = cv2.GaussianBlur(img, (5, 5), 0)
 _, th5 = cv2.threshold(blur, 0, 255, cv2.THRESH_OTSU)
 show_ocr_result(cv2.bitwise_not(th5))
-
-# https://docs.opencv.org/3.4.5/d4/d13/tutorial_py_filtering.html
-print("blur")
-blur = cv2.blur(img, (5, 5))
-show_ocr_result(cv2.bitwise_not(blur))
-
-print("blurg")
-blur = cv2.GaussianBlur(img, (5, 5), 0)
-show_ocr_result(cv2.bitwise_not(blur))
-
-print("med")
-median = cv2.medianBlur(img, 5)
-show_ocr_result(cv2.bitwise_not(blur))
-
-print("bil")
-blur = cv2.bilateralFilter(img, 9, 75, 75)
-show_ocr_result(cv2.bitwise_not(blur))

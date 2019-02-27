@@ -52,16 +52,11 @@ class FrameThresholder:
             res = cv2.bitwise_and(frame, frame, mask=mask)
             res_inv = cv2.bitwise_and(frame, frame, mask=cv2.bitwise_not(mask))
 
-            blur = cv2.GaussianBlur(res, (5, 5), 0)
-            blur_inv = cv2.GaussianBlur(res_inv, (5, 5), 0)
-
             cv2.imshow(self.window_name, mask)
             cv2.imshow('Video Capture AND', res)
             cv2.imshow('Video Capture INV', res_inv)
-            cv2.imshow('Video Capture Blur AND', blur)
-            cv2.imshow('Video Capture Blur INV', blur_inv)
 
-            if cv2.waitKey(100) & 0xFF == ord('q'):
+            if cv2.waitKey(30) & 0xFF == ord('q'):
                 break
 
 
