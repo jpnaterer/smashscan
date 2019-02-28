@@ -6,17 +6,17 @@ import pytesseract
 import util
 
 # https://github.com/tesseract-ocr/tesseract/wiki/Command-Line-Usage
-# 7 - single text line, 8 - single word
+# 7 - single text line, 8 - single word, 8 works well with background blobs.
 
 def show_ocr_result(frame):
     start_time = time.time()
-    text = pytesseract.image_to_string(frame, lang="eng", config="--psm 7")
+    text = pytesseract.image_to_string(frame, lang="eng", config="--psm 8")
     print(text)
     util.display_total_time(start_time)
 
     start_time = time.time()
     pytess_result = pytesseract.image_to_boxes(frame, lang="eng",
-        config="--psm 7", output_type=pytesseract.Output.DICT)
+        config="--psm 8", output_type=pytesseract.Output.DICT)
     # print(pytess_result)
     util.display_total_time(start_time)
 
@@ -29,7 +29,7 @@ def show_ocr_result(frame):
 
     start_time = time.time()
     pytess_data = pytesseract.image_to_data(frame, lang="eng",
-        config="--psm 7", output_type=pytesseract.Output.DICT)
+        config="--psm 8", output_type=pytesseract.Output.DICT)
     # print(pytess_data)
     util.display_total_time(start_time)
 
@@ -46,16 +46,19 @@ def show_ocr_result(frame):
 def ocr_test(img, hsv_flag, avg_flag=False, gau_flag=False,
     med_flag=False, bil_flag=False, inv_flag=True):
 
-    # cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Create a grayscale and HSV copy of the input image.
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    # If the HSV flag is enabled, select white OR red -> (High S AND Mid H)'
     if hsv_flag:
-        mask = cv2.inRange(img_hsv, (40, 60, 0), (160, 255, 255))
+        mask = cv2.inRange(img_hsv, (15, 50, 0), (160, 255, 255))
         result_img = cv2.bitwise_and(img_gray, img_gray,
             mask=cv2.bitwise_not(mask))
     else:
         result_img = img_gray
 
+    # Apply a post blurring filter according to the input flag given.
     # https://docs.opencv.org/3.4.5/d4/d13/tutorial_py_filtering.html
     if avg_flag:
         result_img = cv2.blur(result_img, (5, 5))
@@ -66,6 +69,7 @@ def ocr_test(img, hsv_flag, avg_flag=False, gau_flag=False,
     elif bil_flag:
         result_img = cv2.bilateralFilter(result_img, 9, 75, 75)
 
+    # Invert the image to give the image a black on white background.
     if inv_flag:
         result_img = cv2.bitwise_not(result_img)
 
@@ -94,10 +98,10 @@ def display_ocr_test_flags(hsv_flag, avg_flag, gau_flag,
 capture = cv2.VideoCapture("videos/g6_1.mp4")
 frame = util.get_frame(capture, 1000)
 
-img = cv2.imread('videos/test5.png', cv2.IMREAD_GRAYSCALE)
+img = cv2.imread('videos/test4.png', cv2.IMREAD_GRAYSCALE)
 show_ocr_result(img)
 
-img2 = cv2.imread('videos/test5.png', cv2.IMREAD_COLOR)
+img2 = cv2.imread('videos/test4.png', cv2.IMREAD_COLOR)
 ocr_test(img2, hsv_flag=False)
 ocr_test(img2, hsv_flag=False, avg_flag=True)
 ocr_test(img2, hsv_flag=False, gau_flag=True)

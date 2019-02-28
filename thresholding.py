@@ -1,11 +1,14 @@
 import cv2
 
-# 10 160 50 255 0 255
+# Refer to OpenCV documentation:
 # https://docs.opencv.org/3.4.5/da/d97/tutorial_threshold_inRange.html
 # https://docs.opencv.org/3.4.5/de/d25/imgproc_color_conversions.html
 # https://docs.opencv.org/3.4/da/d6a/tutorial_trackbar.html
 # https://docs.opencv.org/3.4.5/da/d97/tutorial_threshold_inRange.html
 
+
+# An object that creates a trackbar window for HSV ranges, and two separate
+# windows that displays the results of the trackbar ranges.
 class FrameThresholder:
 
     def __init__(self, video_location, start_fnum=0):
