@@ -1,5 +1,8 @@
 import cv2
 
+# SmashScan Libraries
+import util
+
 # Refer to OpenCV documentation:
 # https://docs.opencv.org/3.4.5/da/d97/tutorial_threshold_inRange.html
 # https://docs.opencv.org/3.4.5/de/d25/imgproc_color_conversions.html
@@ -7,9 +10,9 @@ import cv2
 # https://docs.opencv.org/3.4.5/da/d97/tutorial_threshold_inRange.html
 
 
-# An object that creates a trackbar window for HSV ranges, and two separate
-# windows that displays the results of the trackbar ranges.
-class FrameThresholder:
+# An object that creates a parameter analyzer window for HSV ranges, and two
+# separate windows that displays the results of the trackbar ranges.
+class HsvParamAnalyzer:
 
     def __init__(self, video_location, start_fnum=0):
         self.window_name = 'Object Detection'
@@ -97,3 +100,41 @@ class FrameThresholder:
         self.high_V = val
         self.high_V = max(self.high_V, self.low_V+1)
         cv2.setTrackbarPos(self.high_V_name, self.window_name, self.high_V)
+
+
+# An object that creates a parameter analyzer window for damage OCR.
+class DmgParamAnalyzer:
+
+    def __init__(self, video_location, start_fnum=0, stop_fnum=0):
+        self.capture = cv2.VideoCapture(video_location)
+        self.capture.set(cv2.CAP_PROP_POS_FRAMES, start_fnum)
+        self.window_name = "Damage Parameter Analyzer"
+
+        self.start_fnum = start_fnum
+        self.stop_fnum = stop_fnum
+        if stop_fnum == 0:
+            self.stop_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        cv2.namedWindow(self.window_name)
+        cv2.createTrackbar("Binary/Otsu Thresh", self.window_name,
+            0, 1, self.on_thresh_trackbar)
+
+        self.thresh_flag = False
+
+
+    def standard_test(self):
+        for fnum in range(self.start_fnum, self.stop_fnum):
+            frame = util.get_frame(self.capture, fnum, gray_flag=True)
+            frame = frame[300:340, 80:220]
+
+            if self.thresh_flag:
+                _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_BINARY)
+            else:
+                _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_OTSU)
+
+            cv2.imshow(self.window_name, frame)
+            if cv2.waitKey(10) & 0xFF == ord('q'):
+                break
+
+    def on_thresh_trackbar(self, val):
+        self.thresh_flag = val

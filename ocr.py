@@ -128,7 +128,7 @@ def contour_test(img):
         cv2.waitKey(0)
 
 
-for fnum in [3400, 5000]:
+for fnum in [5320, 7020]: # 3400 works fine
     capture = cv2.VideoCapture("videos/tbh1.mp4")
     frame = util.get_frame(capture, fnum, gray_flag=True)
     frame = frame[300:340, 80:220]
@@ -157,8 +157,9 @@ for fnum in [3400, 5000]:
     _, thresh = cv2.threshold(blur, 127, 255, cv2.THRESH_BINARY)
     th = cv2.medianBlur(thresh, 5)
     show_ocr_result(cv2.bitwise_not(th))
-    contour_test(th)
 
     print("adaothresh")
-    _, th2 = cv2.threshold(frame, 0, 255, cv2.THRESH_OTSU)
+    _, th2 = cv2.threshold(blur, 0, 255, cv2.THRESH_OTSU)
     show_ocr_result(cv2.bitwise_not(th2))
+
+    contour_test(th)

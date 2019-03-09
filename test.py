@@ -121,8 +121,10 @@ if __name__ == '__main__':
         help='A flag used to run the stage detection timeline test.')
     parser.add_argument('-vaf', '--vaf_test_flag', action='store_true',
         help='A flag used to run the video analyzer folder test.')
-    parser.add_argument('-fth', '--fth_test_flag', action='store_true',
-        help='A flag used to run the frame thresholding test.')
+    parser.add_argument('-pah', '--pah_test_flag', action='store_true',
+        help='A flag used to run the HSV parameter analysis test.')
+    parser.add_argument('-pad', '--pad_test_flag', action='store_true',
+        help='A flag used to run the damage parameter analysis test.')
 
     # Add CLI arguments for parameters of the various smashscan tests.
     parser.add_argument('-show', '--show_flag', action='store_true',
@@ -161,9 +163,13 @@ if __name__ == '__main__':
         sd.standard_test()
     elif args.vaf_test_flag:
         run_va_over_video_folder()
-    elif args.fth_test_flag:
-        ft = thresholding.FrameThresholder(video_location, args.start_fnum)
-        ft.standard_test()
+    elif args.pah_test_flag:
+        pah = thresholding.HsvParamAnalyzer(video_location, args.start_fnum)
+        pah.standard_test()
+    elif args.pad_test_flag:
+        pad = thresholding.DmgParamAnalyzer(video_location,
+            args.start_fnum, args.stop_fnum)
+        pad.standard_test()
     else:
         tfnet = TFNet(TFNET_OPTIONS)
         va = video_analysis.VideoAnalyzer(video_location,
