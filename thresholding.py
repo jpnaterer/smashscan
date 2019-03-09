@@ -14,7 +14,14 @@ import util
 # separate windows that displays the results of the trackbar ranges.
 class HsvParamAnalyzer:
 
-    def __init__(self, video_location, start_fnum=0):
+    def __init__(self, video_location, start_fnum=0, stop_fnum=0):
+
+        self.capture = cv2.VideoCapture(video_location)
+        self.start_fnum = start_fnum
+        self.stop_fnum = stop_fnum
+        if stop_fnum == 0:
+            self.stop_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
         self.window_name = 'Object Detection'
         self.low_H_name = 'Low H'
         self.low_S_name = 'Low S'
@@ -40,15 +47,12 @@ class HsvParamAnalyzer:
         cv2.createTrackbar(self.high_V_name, self.window_name,
             self.high_V, 255, self.on_high_V_thresh_trackbar)
 
-        self.capture = cv2.VideoCapture(video_location)
-        self.capture.set(cv2.CAP_PROP_POS_FRAMES, start_fnum)
-
 
     # The standard test iterates through the entire video with multiple track
     # bars to vary HSV thresholds. Results can be seen in a separate window.
     def standard_test(self):
-        while True:
-            _, frame = self.capture.read()
+        for fnum in range(self.start_fnum, self.stop_fnum):
+            frame = util.get_frame(self.capture, fnum)
             frame = frame[280:, :]
             frame_HSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -66,6 +70,7 @@ class HsvParamAnalyzer:
                 break
 
 
+    # A number of methods corresponding to the various trackbars available.
     def on_low_H_thresh_trackbar(self, val):
         self.low_H = val
         self.low_H = min(self.high_H-1, self.low_H)
@@ -116,25 +121,60 @@ class DmgParamAnalyzer:
             self.stop_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
         cv2.namedWindow(self.window_name)
-        cv2.createTrackbar("Binary/Otsu Thresh", self.window_name,
+        cv2.createTrackbar("Step Size", self.window_name,
+            1, 100, self.on_step_trackbar)
+        cv2.createTrackbar("Thresh ~ Bin, Otsu", self.window_name,
             0, 1, self.on_thresh_trackbar)
+        cv2.createTrackbar("Pre Blur ~ 0, Gaus, Med", self.window_name,
+            0, 2, self.on_pre_blur_trackbar)
+        cv2.createTrackbar("Post Blur ~ 0, Gaus, Med", self.window_name,
+            0, 2, self.on_post_blur_trackbar)
 
+        self.step_size = 1
         self.thresh_flag = False
+        self.pre_blur_val = 0
+        self.post_blur_val = 0
 
 
+    # The method that must be called to boot up the paramater analysis GUI.
     def standard_test(self):
-        for fnum in range(self.start_fnum, self.stop_fnum):
+        fnum = self.start_fnum
+        while fnum < self.stop_fnum:
+            fnum += self.step_size
             frame = util.get_frame(self.capture, fnum, gray_flag=True)
             frame = frame[300:340, 80:220]
 
+            # Apply pre-blur according to trackbar value.
+            if self.pre_blur_val == 1:
+                frame = cv2.GaussianBlur(frame, (5, 5), 0)
+            elif self.pre_blur_val == 2:
+                frame = cv2.medianBlur(frame, 5)
+
+            # Apply thresholding method according to trackbar value.
             if self.thresh_flag:
                 _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_BINARY)
             else:
                 _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_OTSU)
 
+            # Apply post-blur according to trackbar value.
+            if self.post_blur_val == 1:
+                frame = cv2.GaussianBlur(frame, (5, 5), 0)
+            elif self.post_blur_val == 2:
+                frame = cv2.medianBlur(frame, 5)
+
             cv2.imshow(self.window_name, frame)
             if cv2.waitKey(10) & 0xFF == ord('q'):
                 break
 
+    # A number of methods corresponding to the various trackbars available.
+    def on_step_trackbar(self, val):
+        self.step_size = val
+
     def on_thresh_trackbar(self, val):
         self.thresh_flag = val
+
+    def on_pre_blur_trackbar(self, val):
+        self.pre_blur_val = val
+
+    def on_post_blur_trackbar(self, val):
+        self.post_blur_val = val
