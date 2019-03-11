@@ -1,3 +1,4 @@
+import time
 import cv2
 
 # SmashScan Libraries
@@ -129,9 +130,12 @@ class DmgParamAnalyzer:
             0, 2, self.on_pre_blur_trackbar)
         cv2.createTrackbar("Post Blur ~ 0, Gaus, Med", self.window_name,
             0, 2, self.on_post_blur_trackbar)
+        cv2.createTrackbar("OCR ~ Off, On", self.window_name,
+            0, 1, self.on_ocr_trackbar)
 
         self.step_size = 1
         self.thresh_flag = False
+        self.ocr_flag = False
         self.pre_blur_val = 0
         self.post_blur_val = 0
 
@@ -139,7 +143,9 @@ class DmgParamAnalyzer:
     # The method that must be called to boot up the paramater analysis GUI.
     def standard_test(self):
         fnum = self.start_fnum
+        time_queue = list()
         while fnum < self.stop_fnum:
+            start_time = time.time()
             fnum += self.step_size
             frame = util.get_frame(self.capture, fnum, gray_flag=True)
             frame = frame[300:340, 80:220]
@@ -162,6 +168,7 @@ class DmgParamAnalyzer:
             elif self.post_blur_val == 2:
                 frame = cv2.medianBlur(frame, 5)
 
+            util.display_pa_fps(start_time, time_queue)
             cv2.imshow(self.window_name, frame)
             if cv2.waitKey(10) & 0xFF == ord('q'):
                 break
@@ -178,3 +185,6 @@ class DmgParamAnalyzer:
 
     def on_post_blur_trackbar(self, val):
         self.post_blur_val = val
+
+    def on_ocr_trackbar(self, val):
+        self.ocr_flag = val
