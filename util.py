@@ -108,7 +108,7 @@ def display_fps(start_time, frame_count, title=""):
 # Display the FPS of a parameter analysis test using a finite queue. The first
 # element of the time list represents the last update time. Abuses the fact
 # that lists are pass by reference, so no list needs to be returned.
-def display_pa_fps(start_time, time_list, list_size=60):
+def display_pa_fps(start_time, time_list, disp_dict, list_size=60):
 
     curr_time = time.time()
     if not time_list:
@@ -119,7 +119,9 @@ def display_pa_fps(start_time, time_list, list_size=60):
     avg_time = sum(time_list[1:]) / (len(time_list) - 1)
     if curr_time - time_list[0] >= 0.5:
         time_list[0] = curr_time
-        print("FPS: {:04d}".format(int(1/avg_time)), end='\r')
+        print("====\nFPS: {:04d}".format(int(1/avg_time)))
+        for key in disp_dict:
+            print("{}: {}".format(key, disp_dict[key]))
 
     # Delete the first half of the time queue if reached max size.
     if len(time_list) == list_size:

@@ -1,5 +1,6 @@
 import time
 import cv2
+import pytesseract
 
 # SmashScan Libraries
 import util
@@ -124,16 +125,19 @@ class DmgParamAnalyzer:
         cv2.namedWindow(self.window_name)
         cv2.createTrackbar("Step Size", self.window_name,
             1, 100, self.on_step_trackbar)
+        cv2.createTrackbar("Delay", self.window_name,
+            10, 500, self.on_delay_trackbar)
         cv2.createTrackbar("Thresh ~ Bin, Otsu", self.window_name,
             0, 1, self.on_thresh_trackbar)
         cv2.createTrackbar("Pre Blur ~ 0, Gaus, Med", self.window_name,
             0, 2, self.on_pre_blur_trackbar)
-        cv2.createTrackbar("Post Blur ~ 0, Gaus, Med", self.window_name,
-            0, 2, self.on_post_blur_trackbar)
+        cv2.createTrackbar("Post Blur ~ 0, Med", self.window_name,
+            0, 1, self.on_post_blur_trackbar)
         cv2.createTrackbar("OCR ~ Off, On", self.window_name,
             0, 1, self.on_ocr_trackbar)
 
         self.step_size = 1
+        self.step_delay = 10
         self.thresh_flag = False
         self.ocr_flag = False
         self.pre_blur_val = 0
@@ -144,11 +148,12 @@ class DmgParamAnalyzer:
     def standard_test(self):
         fnum = self.start_fnum
         time_queue = list()
+        disp_dict = dict()
         while fnum < self.stop_fnum:
             start_time = time.time()
             fnum += self.step_size
             frame = util.get_frame(self.capture, fnum, gray_flag=True)
-            frame = frame[300:340, 80:220]
+            frame = frame[300:340, 200:320] # tbh1.mp4 300:340, 80:220
 
             # Apply pre-blur according to trackbar value.
             if self.pre_blur_val == 1:
@@ -163,19 +168,25 @@ class DmgParamAnalyzer:
                 _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_OTSU)
 
             # Apply post-blur according to trackbar value.
-            if self.post_blur_val == 1:
-                frame = cv2.GaussianBlur(frame, (5, 5), 0)
-            elif self.post_blur_val == 2:
+            if self.post_blur_val:
                 frame = cv2.medianBlur(frame, 5)
 
-            util.display_pa_fps(start_time, time_queue)
+            if self.ocr_flag:
+                text = pytesseract.image_to_string(frame,
+                    lang="eng", config="--psm 8")
+                disp_dict["OCR"] = text
+
+            util.display_pa_fps(start_time, time_queue, disp_dict)
             cv2.imshow(self.window_name, frame)
-            if cv2.waitKey(10) & 0xFF == ord('q'):
+            if cv2.waitKey(self.step_delay) & 0xFF == ord('q'):
                 break
 
     # A number of methods corresponding to the various trackbars available.
     def on_step_trackbar(self, val):
         self.step_size = val
+
+    def on_delay_trackbar(self, val):
+        self.step_delay = val
 
     def on_thresh_trackbar(self, val):
         self.thresh_flag = val

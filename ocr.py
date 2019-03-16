@@ -18,7 +18,7 @@ def show_ocr_result(frame):
     start_time = time.time()
     pytess_result = pytesseract.image_to_boxes(frame, lang="eng",
         config="--psm 8", output_type=pytesseract.Output.DICT)
-    # print(pytess_result)
+    print(pytess_result)
     util.display_total_time(start_time)
 
     bbox_list = list()
@@ -31,7 +31,7 @@ def show_ocr_result(frame):
     start_time = time.time()
     pytess_data = pytesseract.image_to_data(frame, lang="eng",
         config="--psm 8", output_type=pytesseract.Output.DICT)
-    # print(pytess_data)
+    print(pytess_data)
     util.display_total_time(start_time)
 
     bbox_list = list()
@@ -129,9 +129,9 @@ def contour_test(img):
 
 
 for fnum in [5320, 7020]: # 3400 works fine
-    capture = cv2.VideoCapture("videos/tbh1.mp4")
+    capture = cv2.VideoCapture("videos/g6_1.mp4")
     frame = util.get_frame(capture, fnum, gray_flag=True)
-    frame = frame[300:340, 80:220]
+    frame = frame[300:340, 200:320] # tbh1.mp4 300:340, 80:220
     cv2.imshow('frame', frame)
     cv2.waitKey(0)
 
@@ -162,4 +162,5 @@ for fnum in [5320, 7020]: # 3400 works fine
     _, th2 = cv2.threshold(blur, 0, 255, cv2.THRESH_OTSU)
     show_ocr_result(cv2.bitwise_not(th2))
 
-    contour_test(th)
+    contour_test(th2)
+
