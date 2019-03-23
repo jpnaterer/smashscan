@@ -1,6 +1,7 @@
 import time
 import cv2
 import pytesseract
+import numpy as np
 
 # SmashScan Libraries
 import util
@@ -133,15 +134,30 @@ class DmgParamAnalyzer:
             0, 2, self.on_pre_blur_trackbar)
         cv2.createTrackbar("Post Blur ~ 0, Med", self.window_name,
             0, 1, self.on_post_blur_trackbar)
+        cv2.createTrackbar("Contour Filter ~ Off, On", self.window_name,
+            0, 1, self.on_contour_trackbar)
+        cv2.createTrackbar("Contour Display ~ Off, On", self.window_name,
+            0, 1, self.on_contour_disp_trackbar)
+        cv2.createTrackbar("Contour Min Area", self.window_name,
+            1, 1000, self.on_contour_min_area_trackbar)
+        cv2.createTrackbar("Contour Max Area", self.window_name,
+            5000, 5000, self.on_contour_max_area_trackbar)
         cv2.createTrackbar("OCR ~ Off, On", self.window_name,
             0, 1, self.on_ocr_trackbar)
+        cv2.createTrackbar("OCR ~ 1 Line, 1 Word", self.window_name,
+            0, 1, self.on_ocr_mode_trackbar)
 
         self.step_size = 1
         self.step_delay = 10
-        self.thresh_flag = False
-        self.ocr_flag = False
         self.pre_blur_val = 0
+        self.thresh_flag = False
         self.post_blur_val = 0
+        self.contour_flag = False
+        self.contour_disp_flag = False
+        self.contour_min_area = 1
+        self.contour_max_area = 5000
+        self.ocr_flag = False
+        self.ocr_mode_flag = False
 
 
     # The method that must be called to boot up the paramater analysis GUI.
@@ -153,33 +169,68 @@ class DmgParamAnalyzer:
             start_time = time.time()
             fnum += self.step_size
             frame = util.get_frame(self.capture, fnum, gray_flag=True)
-            frame = frame[300:340, 200:320] # tbh1.mp4 300:340, 80:220
-
-            # Apply pre-blur according to trackbar value.
-            if self.pre_blur_val == 1:
-                frame = cv2.GaussianBlur(frame, (5, 5), 0)
-            elif self.pre_blur_val == 2:
-                frame = cv2.medianBlur(frame, 5)
-
-            # Apply thresholding method according to trackbar value.
-            if self.thresh_flag:
-                _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_BINARY)
-            else:
-                _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_OTSU)
-
-            # Apply post-blur according to trackbar value.
-            if self.post_blur_val:
-                frame = cv2.medianBlur(frame, 5)
+            frame = frame[300:340, 80:220] # 300:340, 200:320
+            frame = self.param_filter(frame)
+            if self.contour_flag:
+                frame = self.contour_filter(frame)
 
             if self.ocr_flag:
-                text = pytesseract.image_to_string(frame,
-                    lang="eng", config="--psm 8")
+                conf_text = "--psm 7"       # Single test line mode.
+                if self.ocr_mode_flag:      # Single word mode.
+                    conf_text = "--psm 8"
+
+                text = pytesseract.image_to_string(cv2.bitwise_not(frame),
+                    lang="eng", config=conf_text)
                 disp_dict["OCR"] = text
 
             util.display_pa_fps(start_time, time_queue, disp_dict)
             cv2.imshow(self.window_name, frame)
             if cv2.waitKey(self.step_delay) & 0xFF == ord('q'):
                 break
+
+
+    # Apply filters to frame according to GUI parameters.
+    def param_filter(self, frame):
+        # Apply pre-blur according to trackbar value.
+        if self.pre_blur_val == 1:
+            frame = cv2.GaussianBlur(frame, (5, 5), 0)
+        elif self.pre_blur_val == 2:
+            frame = cv2.medianBlur(frame, 5)
+
+        # Apply a thresholding method according to trackbar value.
+        if self.thresh_flag:
+            _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_BINARY)
+        else:
+            _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_OTSU)
+
+        # Apply post-blur according to trackbar value.
+        if self.post_blur_val:
+            frame = cv2.medianBlur(frame, 5)
+
+        return frame
+
+
+    # Apply filterrs to frame according to contour parameters.
+    def contour_filter(self, frame):
+        _, contours, _ = cv2.findContours(frame,
+            cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        new_frame = np.zeros(frame.shape, np.uint8)
+        for i, contour in enumerate(contours):
+            c_area = cv2.contourArea(contour)
+            if self.contour_min_area <= c_area <= self.contour_max_area:
+                mask = np.zeros(frame.shape, np.uint8)
+                cv2.drawContours(mask, contours, i, 255, cv2.FILLED)
+                mask = cv2.bitwise_and(frame, mask)
+                new_frame = cv2.bitwise_or(new_frame, mask)
+        frame = new_frame
+
+        if self.contour_disp_flag:
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            cv2.drawContours(frame, contours, -1, (255, 0, 0), 1)
+
+        return frame
+
 
     # A number of methods corresponding to the various trackbars available.
     def on_step_trackbar(self, val):
@@ -197,5 +248,20 @@ class DmgParamAnalyzer:
     def on_post_blur_trackbar(self, val):
         self.post_blur_val = val
 
+    def on_contour_trackbar(self, val):
+        self.contour_flag = val
+
+    def on_contour_disp_trackbar(self, val):
+        self.contour_disp_flag = val
+
+    def on_contour_min_area_trackbar(self, val):
+        self.contour_min_area = val
+
+    def on_contour_max_area_trackbar(self, val):
+        self.contour_max_area = val
+
     def on_ocr_trackbar(self, val):
         self.ocr_flag = val
+
+    def on_ocr_mode_trackbar(self, val):
+        self.ocr_mode_flag = val

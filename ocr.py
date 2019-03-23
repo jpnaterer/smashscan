@@ -103,6 +103,7 @@ def contour_test(img):
     cv2.drawContours(img_d, contours, -1, (255, 0, 0), 2)
     cv2.imshow('test', img_d)
     cv2.waitKey(0)
+    res = np.zeros(img.shape, np.uint8)
 
     for i, contour in enumerate(contours):
         img_d = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
@@ -121,17 +122,19 @@ def contour_test(img):
         cv2.imshow('test', img_d)
         cv2.waitKey(0)
 
+        # The result displayed is an accumulation of previous contours.
         mask = np.zeros(img.shape, np.uint8)
         cv2.drawContours(mask, contours, i, 255, cv2.FILLED)
-        res = cv2.bitwise_and(img, img, mask=mask)
+        mask = cv2.bitwise_and(img, mask)
+        res = cv2.bitwise_or(res, mask)
         cv2.imshow('test', res)
         cv2.waitKey(0)
 
 
 for fnum in [5320, 7020]: # 3400 works fine
-    capture = cv2.VideoCapture("videos/g6_1.mp4")
+    capture = cv2.VideoCapture("videos/tbh1.mp4")
     frame = util.get_frame(capture, fnum, gray_flag=True)
-    frame = frame[300:340, 200:320] # tbh1.mp4 300:340, 80:220
+    frame = frame[300:340, 80:220] # 300:340, 200:320
     cv2.imshow('frame', frame)
     cv2.waitKey(0)
 
@@ -163,4 +166,3 @@ for fnum in [5320, 7020]: # 3400 works fine
     show_ocr_result(cv2.bitwise_not(th2))
 
     contour_test(th2)
-
