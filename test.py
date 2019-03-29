@@ -125,6 +125,8 @@ if __name__ == '__main__':
         help='A flag used to run the HSV parameter analysis test.')
     parser.add_argument('-pad', '--pad_test_flag', action='store_true',
         help='A flag used to run the damage parameter analysis test.')
+    parser.add_argument('-pat', '--pat_test_flag', action='store_true',
+        help='A flag used to run the damage TM parameter analysis test.')
 
     # Add CLI arguments for parameters of the various smashscan tests.
     parser.add_argument('-show', '--show_flag', action='store_true',
@@ -170,6 +172,10 @@ if __name__ == '__main__':
         pad = thresholding.DmgParamAnalyzer(video_location,
             args.start_fnum, args.stop_fnum)
         pad.standard_test()
+    elif args.pat_test_flag:
+        pat = thresholding.DmgTmParamAnalyzer(video_location,
+            args.start_fnum, args.stop_fnum)
+        pat.standard_test()
     else:
         tfnet = TFNet(TFNET_OPTIONS)
         va = video_analysis.VideoAnalyzer(video_location,

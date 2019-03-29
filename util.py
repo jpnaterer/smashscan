@@ -90,6 +90,40 @@ def get_avg_bbox(bbox_list):
     return (tl, br)
 
 
+#### MATRIX MANIPULATION FUNCTIONS #############################################
+
+# Given an image location, extract the image and alpha (transparent) mask.
+def get_image_and_mask(img_location, gray_flag):
+
+    # Load image from file with alpha channel (UNCHANGED flag). If an alpha
+    # channel does not exist, just return the base image.
+    img = cv2.imread(img_location, cv2.IMREAD_UNCHANGED)
+    if img.shape[2] <= 3:
+        return img, None
+
+    # Create an alpha channel matrix  with values between 0-255. Then
+    # threshold the alpha channel to create a binary mask.
+    channels = cv2.split(img)
+    mask = np.array(channels[3])
+    _, mask = cv2.threshold(mask, 250, 255, cv2.THRESH_BINARY)
+
+    # Convert image and mask to grayscale or BGR based on input flag.
+    if gray_flag:
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
+    else:
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+
+    return img, mask
+
+
+# Resize an image and mask based on an input scale ratio.
+def resize_img(img, img_scale):
+    h, w = img.shape[:2]
+    h, w = int(h * img_scale), int(w * img_scale)
+    return cv2.resize(img, (w, h))
+
+
 #### LOGGING FUNCTIONS #########################################################
 
 # Display the total time taken of a test procedure.

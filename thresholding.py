@@ -265,3 +265,57 @@ class DmgParamAnalyzer:
 
     def on_ocr_mode_trackbar(self, val):
         self.ocr_mode_flag = val
+
+
+# An object that creates a parameter analyzer for damage template matching.
+class DmgTmParamAnalyzer:
+
+    def __init__(self, video_location, start_fnum=0, stop_fnum=0):
+        self.capture = cv2.VideoCapture(video_location)
+        self.capture.set(cv2.CAP_PROP_POS_FRAMES, start_fnum)
+        self.window_name = "Damage TM Parameter Analyzer"
+
+        self.start_fnum = start_fnum
+        self.stop_fnum = stop_fnum
+        if stop_fnum == 0:
+            self.stop_fnum = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        cv2.namedWindow(self.window_name)
+        cv2.createTrackbar("Step Size", self.window_name,
+            1, 100, self.on_step_trackbar)
+        cv2.createTrackbar("Delay", self.window_name,
+            10, 500, self.on_delay_trackbar)
+
+        self.step_size = 1
+        self.step_delay = 10
+
+        # Read the percentage sign image file and extract a binary mask based
+        # off of the alpha channel. Also, resize to the 360p base height.
+        self.orig_zero_img, self.orig_zero_mask = util.get_image_and_mask(
+            "resources/pct.png", gray_flag=True)
+        self.zero_img = util.resize_img(self.orig_zero_img, 360/480)
+        self.zero_mask = util.resize_img(self.orig_zero_mask, 360/480)
+
+
+    # The method that must be called to boot up the paramater analysis GUI.
+    def standard_test(self):
+        fnum = self.start_fnum
+        time_queue = list()
+        disp_dict = dict()
+        while fnum < self.stop_fnum:
+            start_time = time.time()
+            fnum += self.step_size
+            frame = util.get_frame(self.capture, fnum, gray_flag=True)
+            frame = frame[300:340, 200:320] # 300:340, 80:220
+
+            util.display_pa_fps(start_time, time_queue, disp_dict)
+            cv2.imshow(self.window_name, frame)
+            if cv2.waitKey(self.step_delay) & 0xFF == ord('q'):
+                break
+
+    # A number of methods corresponding to the various trackbars available.
+    def on_step_trackbar(self, val):
+        self.step_size = val
+
+    def on_delay_trackbar(self, val):
+        self.step_delay = val

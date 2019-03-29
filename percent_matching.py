@@ -53,10 +53,10 @@ class PercentMatcher:
 
         # Read the percentage sign image file and extract a binary mask based
         # off of the alpha channel. Also, resize to the 360p base height.
-        self.orig_pct_img, self.orig_pct_mask = get_image_and_mask(
+        self.orig_pct_img, self.orig_pct_mask = util.get_image_and_mask(
             "resources/pct.png", gray_flag)
-        self.pct_img, self.pct_mask = resize_image_and_mask(
-            self.orig_pct_img, self.orig_pct_mask, 360/480)
+        self.pct_img = util.resize_img(self.orig_pct_img, 360/480)
+        self.pct_mask = util.resize_img(self.orig_pct_mask, 360/480)
 
 
     #### PERCENT MATCHER TESTS #################################################
@@ -472,40 +472,6 @@ class PercentMatcher:
 
 
 #### Functions not inherent by PercentMatcher Object ##########################
-
-# Given an image location, extract the image and alpha (transparent) mask.
-def get_image_and_mask(img_location, gray_flag):
-
-    # Load image from file with alpha channel (UNCHANGED flag). If an alpha
-    # channel does not exist, just return the base image.
-    img = cv2.imread(img_location, cv2.IMREAD_UNCHANGED)
-    if img.shape[2] <= 3:
-        return img, None
-
-    # Create an alpha channel matrix  with values between 0-255. Then
-    # threshold the alpha channel to create a binary mask.
-    channels = cv2.split(img)
-    mask = np.array(channels[3])
-    _, mask = cv2.threshold(mask, 250, 255, cv2.THRESH_BINARY)
-
-    # Convert image and mask to grayscale or BGR based on input flag.
-    if gray_flag:
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
-    else:
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-        mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-
-    return img, mask
-
-
-# Resize an image and mask based on an input scale ratio.
-def resize_image_and_mask(img, mask, img_scale):
-    h, w = img.shape[:2]
-    h, w = int(h * img_scale), int(w * img_scale)
-    resized_img = cv2.resize(img, (w, h))
-    resized_mask = cv2.resize(mask, (w, h))
-    return resized_img, resized_mask
-
 
 # Take a matrix and coordinate, and zero the region around that coordinate.
 # This also prevents matrix out of bound errors if the input coordinate is
