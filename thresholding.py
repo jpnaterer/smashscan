@@ -285,16 +285,23 @@ class DmgTmParamAnalyzer:
             1, 100, self.on_step_trackbar)
         cv2.createTrackbar("Delay", self.window_name,
             10, 500, self.on_delay_trackbar)
+        cv2.createTrackbar("TM ~ Off, On", self.window_name,
+            0, 1, self.on_tm_trackbar)
 
         self.step_size = 1
         self.step_delay = 10
+        self.tm_flag = False
 
-        # Read the percentage sign image file and extract a binary mask based
-        # off of the alpha channel. Also, resize to the 360p base height.
-        self.orig_zero_img, self.orig_zero_mask = util.get_image_and_mask(
-            "resources/pct.png", gray_flag=True)
-        self.zero_img = util.resize_img(self.orig_zero_img, 360/480)
-        self.zero_mask = util.resize_img(self.orig_zero_mask, 360/480)
+        # Read all ten of the damage integer images and extract a binary mask
+        # based off of the alpha channel. Also, resize to a 360p height.
+        self.orig_num_img, self.orig_num_mask = [None]*10, [None]*10
+        self.num_img, self.num_mask = [None]*10, [None]*10
+        for i in range(0, 10):
+            self.orig_num_img[i], self.orig_num_mask[i] = util.get_image_and_mask(
+                "resources/{:}.png".format(i), gray_flag=True)
+            self.num_img[i] = util.resize_img(self.orig_num_img[i], 360/480)
+            self.num_mask[i] = util.resize_img(self.orig_num_mask[i], 360/480)
+        self.num_h, self.num_w = self.num_img[0].shape[:2]
 
 
     # The method that must be called to boot up the paramater analysis GUI.
@@ -306,12 +313,31 @@ class DmgTmParamAnalyzer:
             start_time = time.time()
             fnum += self.step_size
             frame = util.get_frame(self.capture, fnum, gray_flag=True)
-            frame = frame[300:340, 200:320] # 300:340, 80:220
+            frame = frame[300:340, 80:220] # 300:340, 200:320
+            if self.tm_flag:
+                self.match_dmg_templates(frame)
 
             util.display_pa_fps(start_time, time_queue, disp_dict)
             cv2.imshow(self.window_name, frame)
             if cv2.waitKey(self.step_delay) & 0xFF == ord('q'):
                 break
+
+
+    # Perform template matching for all ten damage integers.
+    def match_dmg_templates(self, frame):
+        match_mat, max_val, tl = [None]*10, [0]*10, [(0, 0)]*10
+        for i in range(0, 10):
+            match_mat[i] = cv2.matchTemplate(frame, self.num_img[0],
+                cv2.TM_CCORR_NORMED, mask=self.num_mask[0])
+            _, max_val[i], _, tl[i] = cv2.minMaxLoc(match_mat[i])
+        # print(max_val[0])
+        br = (tl[0][0] + self.num_w, tl[0][1] + self.num_h)
+        frame = cv2.rectangle(frame, tl[0], br, (255, 255, 255), 2)
+
+        # Multi-template result searching
+        # _, max_val_1, _, tl_1 = cv2.minMaxLoc(np.array(match_mat))
+        # print(tl_1)
+
 
     # A number of methods corresponding to the various trackbars available.
     def on_step_trackbar(self, val):
@@ -319,3 +345,6 @@ class DmgTmParamAnalyzer:
 
     def on_delay_trackbar(self, val):
         self.step_delay = val
+
+    def on_tm_trackbar(self, val):
+        self.tm_flag = val
